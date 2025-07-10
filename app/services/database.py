@@ -13,7 +13,16 @@ database = DatabaseConnection()
 async def connect_to_mongo():
     """Create database connection"""
     try:
-        database.client = AsyncIOMotorClient(settings.MONGODB_URL)
+        # Enhanced MongoDB connection with SSL/TLS settings
+        database.client = AsyncIOMotorClient(
+            settings.MONGODB_URL,
+            tls=True,
+            tlsAllowInvalidCertificates=True,
+            serverSelectionTimeoutMS=5000,
+            connectTimeoutMS=10000,
+            socketTimeoutMS=20000,
+            retryWrites=True
+        )
         database.database = database.client[settings.DATABASE_NAME]
         
         # Test the connection
