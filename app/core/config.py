@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     EMAIL_USERNAME: str = ""
     EMAIL_PASSWORD: str = ""
     
+    # Railway deployment
+    RAILWAY_STATIC_URL: str = ""
+    PORT: int = 8000
+    
     class Config:
         env_file = ".env"
         case_sensitive = True
