@@ -31,8 +31,6 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3456",
         "https://visualz.xyz",
         "https://www.visualz.xyz",
-        "https://frontend.visualz.xyz",
-        "https://app.visualz.xyz",
         "https://visualz.events",
         "https://www.visualz.events"
     ]
