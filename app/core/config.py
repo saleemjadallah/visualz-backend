@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     
     # Railway deployment
     RAILWAY_STATIC_URL: str = ""
-    PORT: int = int(os.getenv("PORT", "8080"))
+    PORT: int = int(os.getenv("PORT", "8000"))
     
     class Config:
         env_file = ".env"
