@@ -20,7 +20,7 @@ from app.services.geometry_export_service import (
     ExportOptions,
     ExportResult
 )
-from app.core.security import get_current_user
+from app.api.auth import get_current_user
 from app.models.user import User
 
 router = APIRouter()
