@@ -32,9 +32,11 @@ class Settings(BaseSettings):
         "https://visualz.xyz",
         "https://www.visualz.xyz",
         "https://frontend.visualz.xyz",
-        "https://app.visualz.xyz"
+        "https://app.visualz.xyz",
+        "https://visualz.events",
+        "https://www.visualz.events"
     ]
-    ALLOWED_HOSTS: List[str] = ["localhost", "127.0.0.1", "*.railway.app", "visualz.xyz", "*.visualz.xyz"]
+    ALLOWED_HOSTS: List[str] = ["localhost", "127.0.0.1", "*.railway.app", "visualz.xyz", "*.visualz.xyz", "visualz.events", "*.visualz.events"]
     
     # Email settings (optional)
     EMAIL_HOST: str = ""
