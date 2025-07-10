@@ -16,11 +16,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="DesignVisualz API",
-    description="AI-powered event visualization platform",
+    description="AI-powered event visualization platform with parametric furniture generation",
     version="1.0.0",
-    docs_url="/docs" if settings.ENVIRONMENT == "development" else None,
+    docs_url="/docs" if settings.ENVIRONMENT == "development" else "/docs",
     redoc_url="/redoc" if settings.ENVIRONMENT == "development" else None,
     lifespan=lifespan,
+    servers=[
+        {"url": "https://visualz.xyz", "description": "Production server"},
+        {"url": f"http://localhost:{settings.PORT}", "description": "Development server"}
+    ]
 )
 
 # Security middleware

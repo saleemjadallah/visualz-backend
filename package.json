@@ -1,0 +1,31 @@
+{
+  "name": "designvisualz-parametric-furniture",
+  "version": "1.0.0",
+  "description": "AI-powered parametric furniture generation system with cultural intelligence",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.core.json",
+    "build:full": "tsc",
+    "dev": "tsc -p tsconfig.core.json --watch",
+    "test": "jest",
+    "lint": "eslint parametric-furniture/**/*.ts",
+    "clean": "rm -rf dist",
+    "compile-check": "tsc -p tsconfig.core.json --noEmit",
+    "compile-check:full": "tsc --noEmit"
+  },
+  "dependencies": {
+    "three": "^0.159.0",
+    "openai": "^4.20.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.159.0",
+    "@types/node": "^20.9.0",
+    "typescript": "^5.3.2",
+    "eslint": "^8.54.0",
+    "@typescript-eslint/eslint-plugin": "^6.12.0",
+    "@typescript-eslint/parser": "^6.12.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.8"
+  }
+}

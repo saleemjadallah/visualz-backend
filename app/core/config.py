@@ -24,8 +24,17 @@ class Settings(BaseSettings):
     CLOUDINARY_API_SECRET: str = ""
     
     # CORS and security
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3456", "http://127.0.0.1:3456"]
-    ALLOWED_HOSTS: List[str] = ["localhost", "127.0.0.1", "*.railway.app"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000", 
+        "http://localhost:3456", 
+        "http://127.0.0.1:3456",
+        "https://visualz.xyz",
+        "https://www.visualz.xyz",
+        "https://frontend.visualz.xyz",
+        "https://app.visualz.xyz"
+    ]
+    ALLOWED_HOSTS: List[str] = ["localhost", "127.0.0.1", "*.railway.app", "visualz.xyz", "*.visualz.xyz"]
     
     # Email settings (optional)
     EMAIL_HOST: str = ""
@@ -35,7 +44,7 @@ class Settings(BaseSettings):
     
     # Railway deployment
     RAILWAY_STATIC_URL: str = ""
-    PORT: int = 8000
+    PORT: int = int(os.getenv("PORT", "8080"))
     
     class Config:
         env_file = ".env"
