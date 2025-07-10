@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
-from app.api import auth, projects, designs, ai, uploads, cv_analysis, cultural, websocket, cultural_philosophy
+from app.api import auth, projects, designs, ai, uploads, cv_analysis, cultural, websocket, cultural_philosophy, parametric_furniture
 from app.services.database import init_db, close_db
 
 @asynccontextmanager
@@ -48,6 +48,7 @@ app.include_router(cv_analysis.router, prefix="/api/cv", tags=["computer_vision"
 app.include_router(cultural.router, prefix="/api/cultural", tags=["cultural"])
 app.include_router(cultural_philosophy.router, prefix="/api/cultural-philosophy", tags=["cultural_philosophy"])
 app.include_router(websocket.router, prefix="/api/ws", tags=["websocket"])
+app.include_router(parametric_furniture.router, prefix="/api/parametric-furniture", tags=["parametric_furniture"])
 
 @app.get("/")
 async def root():
