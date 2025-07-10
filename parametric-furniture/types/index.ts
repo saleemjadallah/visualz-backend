@@ -5,7 +5,8 @@ export type FurnitureType =
   | 'dining-table' | 'coffee-table' | 'side-table'
   | 'cabinet' | 'shelf' | 'chest'
   | 'ceiling-light' | 'table-lamp' | 'floor-lamp'
-  | 'decorative-vase' | 'plant-pot' | 'wall-art';
+  | 'decorative-vase' | 'plant-pot' | 'wall-art'
+  | 'lighting-system' | 'floral-arrangement' | 'stage-system';
 
 export type CultureType = 
   | 'japanese' | 'scandinavian' | 'italian' 
@@ -212,3 +213,72 @@ export interface AIFurnitureAnalysis {
   ergonomic_considerations: string;
   spatial_optimization: string;
 }
+
+// New template parameter interfaces for expanded system
+export interface LightingParameters {
+  culture: CultureType;
+  eventType: 'intimate-dinner' | 'celebration' | 'ceremony' | 'reception' | 'corporate';
+  timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night';
+  season: 'spring' | 'summer' | 'autumn' | 'winter';
+  spaceType: 'indoor' | 'outdoor' | 'covered-outdoor' | 'mixed';
+  spaceDimensions: {
+    width: number;
+    depth: number;
+    height: number;
+  };
+  ambiance: 'romantic' | 'energetic' | 'serene' | 'dramatic' | 'professional';
+  functionality: 'task-focused' | 'ambient-only' | 'accent-heavy' | 'balanced';
+  powerBudget: number;
+  installationComplexity: 'simple' | 'moderate' | 'complex' | 'professional';
+  weatherResistance: boolean;
+  traditionalElements: string[];
+  colorTemperature: 'warm' | 'neutral' | 'cool' | 'variable';
+  brightness: 'dim' | 'moderate' | 'bright' | 'adaptive';
+}
+
+export interface FloralParameters {
+  culture: CultureType;
+  eventType: 'wedding' | 'birthday' | 'corporate' | 'memorial' | 'celebration';
+  formality: FormalityLevel;
+  season: 'spring' | 'summer' | 'autumn' | 'winter';
+  arrangementStyle: 'centerpiece' | 'altar' | 'entrance' | 'perimeter' | 'scattered';
+  scale: 'intimate' | 'medium' | 'grand' | 'monumental';
+  colorScheme: 'monochromatic' | 'analogous' | 'complementary' | 'triadic' | 'natural';
+  budget: number;
+  venue: 'indoor' | 'outdoor' | 'mixed';
+  duration: number;
+  maintenance: 'low' | 'medium' | 'high';
+  symbolism: string[];
+  traditionalFlowers: string[];
+  avoidFlowers: string[];
+  localSourcing: boolean;
+  sustainablePractices: boolean;
+  reusability: boolean;
+}
+
+export interface StageParameters {
+  performanceType: 'live-music' | 'dj-set' | 'speaker' | 'ceremony' | 'presentation';
+  audienceSize: number;
+  interactionLevel: 'performance-only' | 'some-interaction' | 'high-interaction';
+  audioRequirements: 'basic' | 'professional' | 'audiophile' | 'silent';
+  visualRequirements: 'minimal' | 'standard' | 'spectacular' | 'immersive';
+  lightingIntegration: boolean;
+  culture: CultureType;
+  ceremony: boolean;
+  traditionalElements: string[];
+  spaceDimensions: {
+    width: number;
+    depth: number;
+    maxHeight: number;
+  };
+  budget: number;
+  setupTime: number;
+  weatherProtection: boolean;
+  accessibilityRequired: boolean;
+  multilingual: boolean;
+  hearingAssistance: boolean;
+  visualAssistance: boolean;
+}
+
+// Union type for all template parameters
+export type TemplateParameters = ParametricParameters | LightingParameters | FloralParameters | StageParameters;

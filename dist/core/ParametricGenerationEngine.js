@@ -4,9 +4,15 @@ import { AIParameterAnalyzer } from '../ai-integration/AIParameterAnalyzer';
 import { ParametricMaterialSystem } from '../materials/ParametricMaterialSystem';
 import { ChairTemplate } from '../templates/seating/ChairTemplate';
 import { TableTemplate } from '../templates/tables/TableTemplate';
+import { LightingTemplate } from '../templates/lighting/LightingTemplate';
+import { FloralTemplate } from '../templates/floral/FloralTemplate';
+import { StageTemplate } from '../templates/stage/StageTemplate';
 export class ParametricGenerationEngine {
     constructor() {
         this.templates = new Map();
+        this.lightingTemplate = new LightingTemplate();
+        this.floralTemplate = new FloralTemplate();
+        this.stageTemplate = new StageTemplate();
         this.culturalDB = new CulturalKnowledgeBase();
         this.aiAnalyzer = new AIParameterAnalyzer();
         this.materialSystem = new ParametricMaterialSystem();
@@ -431,6 +437,199 @@ export class ParametricGenerationEngine {
     }
     getSupportedCultures() {
         return ['japanese', 'scandinavian', 'italian', 'french', 'modern'];
+    }
+    // New methods for expanded template system
+    async generateLightingSystem(parameters) {
+        console.log(`💡 Generating lighting system for ${parameters.culture} ${parameters.eventType}...`);
+        const startTime = performance.now();
+        const lightingSystem = this.lightingTemplate.generateLightingSystem(parameters);
+        const generationTime = performance.now() - startTime;
+        console.log(`✨ Lighting system generated in ${generationTime.toFixed(2)}ms`);
+        return lightingSystem;
+    }
+    async generateFloralArrangements(parameters) {
+        console.log(`🌸 Generating floral arrangements for ${parameters.culture} ${parameters.eventType}...`);
+        const startTime = performance.now();
+        const floralSystem = this.floralTemplate.generateFloralArrangements(parameters);
+        const generationTime = performance.now() - startTime;
+        console.log(`✨ Floral arrangements generated in ${generationTime.toFixed(2)}ms`);
+        return floralSystem;
+    }
+    async generateStageSystem(parameters) {
+        console.log(`🎭 Generating stage system for ${parameters.culture} ${parameters.performanceType}...`);
+        const startTime = performance.now();
+        const stageSystem = this.stageTemplate.generateStageSystem(parameters);
+        const generationTime = performance.now() - startTime;
+        console.log(`✨ Stage system generated in ${generationTime.toFixed(2)}ms`);
+        return stageSystem;
+    }
+    // Comprehensive event generation that combines all systems
+    async generateCompleteEventSetup(eventSpec) {
+        console.log('🎯 Starting complete event setup generation...');
+        const startTime = performance.now();
+        // Generate furniture
+        const furniture = await this.generateFurnitureFromUserInput(eventSpec.furniture);
+        // Generate optional systems
+        const lighting = eventSpec.lighting
+            ? await this.generateLightingSystem(eventSpec.lighting)
+            : undefined;
+        const floral = eventSpec.floral
+            ? await this.generateFloralArrangements(eventSpec.floral)
+            : undefined;
+        const stage = eventSpec.stage
+            ? await this.generateStageSystem(eventSpec.stage)
+            : undefined;
+        const totalTime = performance.now() - startTime;
+        // Calculate summary
+        const totalCost = furniture.reduce((sum, item) => sum + item.metadata.estimatedCost, 0) +
+            (lighting?.userData.estimatedCost || 0) +
+            (floral?.userData.estimatedCost || 0) +
+            (stage?.userData.estimatedCost || 0);
+        const summary = {
+            totalPieces: furniture.length + (lighting ? 1 : 0) + (floral ? 1 : 0) + (stage ? 1 : 0),
+            totalCost,
+            generationTime: totalTime,
+            culturalTheme: eventSpec.furniture.culture
+        };
+        console.log(`🎉 Complete event setup generated! Total time: ${totalTime.toFixed(2)}ms`);
+        console.log(`📊 Summary: ${summary.totalPieces} pieces, $${summary.totalCost}, ${summary.culturalTheme} theme`);
+        return {
+            furniture,
+            lighting,
+            floral,
+            stage,
+            summary
+        };
+    }
+    // Enhanced user input that can handle all template types
+    async generateFromUserInput(userInput) {
+        const eventSpec = { furniture: userInput };
+        // Auto-generate lighting parameters if requested
+        if (userInput.includeLighting) {
+            eventSpec.lighting = {
+                culture: userInput.culture,
+                eventType: this.mapEventToLightingType(userInput.eventType),
+                timeOfDay: 'evening',
+                season: 'spring',
+                spaceType: 'indoor',
+                spaceDimensions: userInput.spaceDimensions,
+                ambiance: this.mapFormalityToAmbiance(userInput.formalityLevel),
+                functionality: 'balanced',
+                powerBudget: 3000,
+                installationComplexity: 'moderate',
+                weatherResistance: false,
+                traditionalElements: [],
+                colorTemperature: 'warm',
+                brightness: 'moderate',
+                ...userInput.lightingPreferences
+            };
+        }
+        // Auto-generate floral parameters if requested
+        if (userInput.includeFloral) {
+            eventSpec.floral = {
+                culture: userInput.culture,
+                eventType: this.mapEventToFloralType(userInput.eventType),
+                formality: userInput.formalityLevel,
+                season: 'spring',
+                arrangementStyle: 'centerpiece',
+                scale: this.mapGuestCountToScale(userInput.guestCount),
+                colorScheme: 'natural',
+                budget: this.calculateFloralBudget(userInput.budgetRange),
+                venue: 'indoor',
+                duration: 4,
+                maintenance: 'medium',
+                symbolism: [],
+                traditionalFlowers: [],
+                avoidFlowers: [],
+                localSourcing: true,
+                sustainablePractices: true,
+                reusability: false,
+                ...userInput.floralPreferences
+            };
+        }
+        // Auto-generate stage parameters if requested
+        if (userInput.includeStage) {
+            eventSpec.stage = {
+                performanceType: 'ceremony',
+                audienceSize: userInput.guestCount,
+                interactionLevel: 'some-interaction',
+                audioRequirements: 'professional',
+                visualRequirements: 'standard',
+                lightingIntegration: true,
+                culture: userInput.culture,
+                ceremony: true,
+                traditionalElements: [],
+                spaceDimensions: {
+                    ...userInput.spaceDimensions,
+                    maxHeight: userInput.spaceDimensions.height
+                },
+                budget: this.calculateStageBudget(userInput.budgetRange),
+                setupTime: 4,
+                weatherProtection: false,
+                accessibilityRequired: true,
+                multilingual: false,
+                hearingAssistance: false,
+                visualAssistance: false,
+                ...userInput.stagePreferences
+            };
+        }
+        return this.generateCompleteEventSetup(eventSpec);
+    }
+    // Helper methods for auto-parameter generation
+    mapEventToLightingType(eventType) {
+        const mapping = {
+            'dinner': 'intimate-dinner',
+            'wedding': 'ceremony',
+            'birthday': 'celebration',
+            'corporate': 'corporate',
+            'reception': 'reception'
+        };
+        return mapping[eventType] || 'ceremony';
+    }
+    mapEventToFloralType(eventType) {
+        const mapping = {
+            'wedding': 'wedding',
+            'birthday': 'birthday',
+            'corporate': 'corporate',
+            'memorial': 'memorial'
+        };
+        return mapping[eventType] || 'celebration';
+    }
+    mapFormalityToAmbiance(formality) {
+        const mapping = {
+            'casual': 'energetic',
+            'semi-formal': 'serene',
+            'formal': 'romantic',
+            'ceremonial': 'dramatic'
+        };
+        return mapping[formality] || 'serene';
+    }
+    mapGuestCountToScale(guestCount) {
+        if (guestCount <= 10)
+            return 'intimate';
+        if (guestCount <= 50)
+            return 'medium';
+        if (guestCount <= 200)
+            return 'grand';
+        return 'monumental';
+    }
+    calculateFloralBudget(budgetRange) {
+        const budgets = {
+            'low': 200,
+            'medium': 500,
+            'high': 1000,
+            'luxury': 2500
+        };
+        return budgets[budgetRange] || 500;
+    }
+    calculateStageBudget(budgetRange) {
+        const budgets = {
+            'low': 1000,
+            'medium': 3000,
+            'high': 7000,
+            'luxury': 15000
+        };
+        return budgets[budgetRange] || 3000;
     }
 }
 //# sourceMappingURL=ParametricGenerationEngine.js.map
