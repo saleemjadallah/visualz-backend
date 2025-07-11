@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials
 from datetime import datetime, timedelta
 from bson import ObjectId
 from typing import Optional
@@ -7,6 +7,7 @@ import logging
 
 from app.models.user import UserCreate, UserLogin, User, Token, UserInDB
 from app.core.security import verify_password, get_password_hash, create_access_token, verify_token
+from app.core.custom_security import HTTPBearer
 from app.services.database import get_database
 
 router = APIRouter()

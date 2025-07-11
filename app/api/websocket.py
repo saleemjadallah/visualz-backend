@@ -6,7 +6,8 @@ import json
 import logging
 from typing import Dict, Any
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status, Query
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials
+from app.core.custom_security import HTTPBearer
 from app.services.websocket_service import websocket_manager
 from app.api.auth import get_current_user_from_token, get_current_user
 from app.models.user import User
