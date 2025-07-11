@@ -309,21 +309,32 @@ async def health_check() -> Dict[str, Any]:
     """
     try:
         # Test database connection
-        philosophies = await cultural_service.get_all_philosophies()
+        success = await cultural_service.initialize()
         
-        return {
-            "success": True,
-            "status": "healthy",
-            "database": "connected",
-            "philosophyCount": len(philosophies),
-            "timestamp": datetime.now().isoformat()
-        }
+        if success:
+            philosophies = await cultural_service.get_all_philosophies()
+            return {
+                "success": True,
+                "status": "healthy",
+                "database": "connected",
+                "philosophyCount": len(philosophies),
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            return {
+                "success": True,
+                "status": "degraded",
+                "database": "fallback_mode",
+                "message": "Cultural database unavailable, using fallback data",
+                "timestamp": datetime.now().isoformat()
+            }
     except Exception as e:
         logger.error(f"Cultural service health check failed: {e}")
         return {
-            "success": False,
-            "status": "unhealthy",
-            "error": str(e),
+            "success": True,
+            "status": "degraded",
+            "database": "unavailable",
+            "message": "Cultural service operating in fallback mode",
             "timestamp": datetime.now().isoformat()
         }
 

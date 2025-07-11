@@ -28,30 +28,52 @@ class CulturalService:
     
     async def initialize(self):
         """Initialize database connections"""
-        self.db = await get_database()
-        # Connect to cultural database
-        client = self.db.client
-        self.cultural_db = client['designvisualz_cultural']
-        logger.info("Cultural service initialized")
+        try:
+            self.db = await get_database()
+            # Connect to cultural database
+            client = self.db.client
+            self.cultural_db = client['designvisualz_cultural']
+            
+            # Test connection to cultural database
+            await self.cultural_db.list_collection_names()
+            logger.info("Cultural service initialized successfully")
+            return True
+        except Exception as e:
+            logger.warning(f"Cultural database not available: {e}")
+            logger.info("Cultural service will operate in fallback mode")
+            self.cultural_db = None
+            return False
     
     async def get_philosophy(self, philosophy_id: str) -> Optional[Dict[str, Any]]:
         """Get a specific design philosophy"""
         if not self.cultural_db:
-            await self.initialize()
+            success = await self.initialize()
+            if not success:
+                return self._get_fallback_philosophy(philosophy_id)
         
-        philosophy = await self.cultural_db.philosophies.find_one(
-            {"philosophyId": philosophy_id}
-        )
-        return philosophy
+        try:
+            philosophy = await self.cultural_db.philosophies.find_one(
+                {"philosophyId": philosophy_id}
+            )
+            return philosophy
+        except Exception as e:
+            logger.warning(f"Error fetching philosophy: {e}")
+            return self._get_fallback_philosophy(philosophy_id)
     
     async def get_all_philosophies(self) -> List[Dict[str, Any]]:
         """Get all available design philosophies"""
         if not self.cultural_db:
-            await self.initialize()
+            success = await self.initialize()
+            if not success:
+                return self._get_fallback_philosophies()
         
-        cursor = self.cultural_db.philosophies.find({})
-        philosophies = await cursor.to_list(length=None)
-        return philosophies
+        try:
+            cursor = self.cultural_db.philosophies.find({})
+            philosophies = await cursor.to_list(length=None)
+            return philosophies
+        except Exception as e:
+            logger.warning(f"Error fetching philosophies: {e}")
+            return self._get_fallback_philosophies()
     
     async def get_design_elements(
         self, 
@@ -136,17 +158,23 @@ class CulturalService:
     ) -> Dict[str, Any]:
         """Get AI-powered cultural recommendations"""
         if not self.cultural_db:
-            await self.initialize()
+            success = await self.initialize()
+            if not success:
+                return self._get_fallback_recommendations(philosophy_id)
         
-        # Get philosophy and elements
-        philosophy = await self.get_philosophy(philosophy_id)
-        design_elements = await self.get_design_elements(philosophy_id)
-        event_apps = await self.cultural_db.event_applications.find({
-            "philosophyId": philosophy_id
-        }).to_list(length=None)
-        
-        if not philosophy:
-            return {"error": "Philosophy not found"}
+        try:
+            # Get philosophy and elements
+            philosophy = await self.get_philosophy(philosophy_id)
+            design_elements = await self.get_design_elements(philosophy_id)
+            event_apps = await self.cultural_db.event_applications.find({
+                "philosophyId": philosophy_id
+            }).to_list(length=None)
+            
+            if not philosophy:
+                return self._get_fallback_recommendations(philosophy_id)
+        except Exception as e:
+            logger.warning(f"Error fetching cultural data: {e}")
+            return self._get_fallback_recommendations(philosophy_id)
         
         recommendations = {
             "philosophy": {
@@ -364,6 +392,95 @@ class CulturalService:
                 seasonal_recs["cultural_significance"] = seasonal_data
         
         return seasonal_recs
+    
+    def _get_fallback_philosophy(self, philosophy_id: str) -> Optional[Dict[str, Any]]:
+        """Get fallback philosophy data when database is unavailable"""
+        fallback_philosophies = {
+            "wabi-sabi": {
+                "_id": "fallback",
+                "philosophyId": "wabi-sabi",
+                "name": {"en": "Wabi-Sabi", "native": "侘び寂び"},
+                "coreValues": ["imperfection", "impermanence", "natural beauty"],
+                "description": "Finding beauty in imperfection and impermanence",
+                "culturalSensitivity": {
+                    "level": "high",
+                    "consultationRequired": True,
+                    "sacredElements": ["tea ceremony items"]
+                }
+            },
+            "hygge": {
+                "_id": "fallback",
+                "philosophyId": "hygge",
+                "name": {"en": "Hygge", "native": "Hygge"},
+                "coreValues": ["coziness", "togetherness", "comfort"],
+                "description": "Creating cozy togetherness and comfortable conviviality",
+                "culturalSensitivity": {
+                    "level": "medium",
+                    "consultationRequired": False,
+                    "sacredElements": []
+                }
+            },
+            "modern-contemporary": {
+                "_id": "fallback",
+                "philosophyId": "modern-contemporary",
+                "name": {"en": "Modern Contemporary", "native": "Modern Contemporary"},
+                "coreValues": ["functionality", "minimalism", "innovation"],
+                "description": "Form follows function with sustainable design",
+                "culturalSensitivity": {
+                    "level": "low",
+                    "consultationRequired": False,
+                    "sacredElements": []
+                }
+            }
+        }
+        return fallback_philosophies.get(philosophy_id)
+    
+    def _get_fallback_philosophies(self) -> List[Dict[str, Any]]:
+        """Get all fallback philosophies when database is unavailable"""
+        return [
+            {
+                "_id": "fallback-1",
+                "philosophyId": "wabi-sabi",
+                "name": {"en": "Wabi-Sabi", "native": "侘び寂び"},
+                "coreValues": ["imperfection", "impermanence", "natural beauty"],
+                "description": "Finding beauty in imperfection and impermanence",
+                "culturalSensitivity": {"level": "high", "consultationRequired": True}
+            },
+            {
+                "_id": "fallback-2",
+                "philosophyId": "hygge",
+                "name": {"en": "Hygge", "native": "Hygge"},
+                "coreValues": ["coziness", "togetherness", "comfort"],
+                "description": "Creating cozy togetherness and comfortable conviviality",
+                "culturalSensitivity": {"level": "medium", "consultationRequired": False}
+            },
+            {
+                "_id": "fallback-3",
+                "philosophyId": "modern-contemporary",
+                "name": {"en": "Modern Contemporary", "native": "Modern Contemporary"},
+                "coreValues": ["functionality", "minimalism", "innovation"],
+                "description": "Form follows function with sustainable design",
+                "culturalSensitivity": {"level": "low", "consultationRequired": False}
+            }
+        ]
+    
+    def _get_fallback_recommendations(self, philosophy_id: str) -> Dict[str, Any]:
+        """Get fallback recommendations when database is unavailable"""
+        return {
+            "philosophy": self._get_fallback_philosophy(philosophy_id) or {"name": {"en": "Unknown"}, "coreValues": []},
+            "colorPalette": [
+                {"name": "Neutral White", "hex": "#F5F5F5", "meaning": "simplicity", "usage": ["walls", "textiles"]},
+                {"name": "Warm Gray", "hex": "#9E9E9E", "meaning": "balance", "usage": ["accents", "furniture"]}
+            ],
+            "materials": [
+                {"name": "Natural Wood", "properties": {"sustainability": 4}, "significance": "warmth and nature"}
+            ],
+            "spatialGuidance": {"layout": "open", "lighting": "natural"},
+            "culturalProtocols": [],
+            "budgetGuidance": {"low": 500, "medium": 1500, "high": 5000},
+            "seasonalConsiderations": {},
+            "warnings": ["Cultural database unavailable - using fallback recommendations"]
+        }
 
 # Global service instance
 cultural_service = CulturalService()
