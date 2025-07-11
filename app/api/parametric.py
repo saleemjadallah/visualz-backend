@@ -418,8 +418,8 @@ async def render_complete_scene(
         
         generation_time = (datetime.now() - start_time).total_seconds()
         
-        # Generate preview URL pointing to your actual domain
-        preview_url = f"https://visualz.events/api/previews/scene_{int(datetime.now().timestamp())}.png"
+        # Generate preview URL pointing to backend domain
+        preview_url = f"https://visualz.xyz/api/previews/scene_{int(datetime.now().timestamp())}.png"
         
         response = {
             "success": True,
