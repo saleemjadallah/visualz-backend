@@ -34,8 +34,14 @@ class CulturalService:
             client = self.db.client
             self.cultural_db = client['designvisualz_cultural']
             
-            # Test connection to cultural database
-            await self.cultural_db.list_collection_names()
+            # Check if database exists by listing collections
+            collections = await self.cultural_db.list_collection_names()
+            
+            # If no collections exist, initialize the database
+            if not collections or len(collections) == 0:
+                logger.info("Cultural database is empty, initializing with default data...")
+                await self._initialize_cultural_database()
+            
             logger.info("Cultural service initialized successfully")
             return True
         except Exception as e:
@@ -481,6 +487,135 @@ class CulturalService:
             "seasonalConsiderations": {},
             "warnings": ["Cultural database unavailable - using fallback recommendations"]
         }
+    
+    async def _initialize_cultural_database(self):
+        """Initialize the cultural database with default data"""
+        try:
+            # Create philosophies
+            philosophies_data = [
+                {
+                    "philosophyId": "wabi-sabi",
+                    "name": {"en": "Wabi-Sabi", "native": "侘び寂び"},
+                    "origin": {
+                        "country": "Japan",
+                        "region": "Multiple",
+                        "historicalPeriod": "15th-16th century"
+                    },
+                    "coreValues": ["imperfection", "impermanence", "incompleteness"],
+                    "description": "Finding beauty in imperfection, impermanence, and incompleteness",
+                    "culturalSensitivity": {
+                        "level": "high",
+                        "sacredElements": ["tea ceremony items", "tokonoma alcoves"],
+                        "consultationRequired": True,
+                        "appropriationConcerns": ["superficial use of terms", "decorative misuse"]
+                    },
+                    "compatibleWith": ["hygge", "modern-minimal"],
+                    "lastUpdated": datetime.now(),
+                    "validationStatus": "expert-reviewed"
+                },
+                {
+                    "philosophyId": "hygge",
+                    "name": {"en": "Hygge", "native": "Hygge"},
+                    "origin": {
+                        "country": "Denmark",
+                        "region": "Scandinavia",
+                        "historicalPeriod": "Traditional"
+                    },
+                    "coreValues": ["coziness", "togetherness", "comfort"],
+                    "description": "Creating cozy togetherness and comfortable conviviality",
+                    "culturalSensitivity": {
+                        "level": "medium",
+                        "consultationRequired": False,
+                        "appropriationConcerns": ["commercializing beyond surface coziness"]
+                    },
+                    "compatibleWith": ["wabi-sabi", "modern-sustainable"],
+                    "lastUpdated": datetime.now(),
+                    "validationStatus": "expert-reviewed"
+                },
+                {
+                    "philosophyId": "modern-contemporary",
+                    "name": {"en": "Modern Contemporary", "native": "Modern Contemporary"},
+                    "origin": {
+                        "country": "International",
+                        "region": "Global",
+                        "historicalPeriod": "20th century to present"
+                    },
+                    "coreValues": ["functionality", "minimalism", "innovation", "sustainability"],
+                    "description": "Form follows function, emphasizing minimalism and sustainability",
+                    "culturalSensitivity": {
+                        "level": "low",
+                        "consultationRequired": False,
+                        "appropriationConcerns": ["creating sterile environments"]
+                    },
+                    "compatibleWith": ["wabi-sabi", "hygge"],
+                    "lastUpdated": datetime.now(),
+                    "validationStatus": "expert-reviewed"
+                }
+            ]
+            
+            await self.cultural_db.philosophies.insert_many(philosophies_data)
+            logger.info(f"Created {len(philosophies_data)} philosophies")
+            
+            # Create design elements
+            design_elements_data = [
+                {
+                    "philosophyId": "wabi-sabi",
+                    "elementType": "colorPalette",
+                    "name": "Earth Tones",
+                    "colors": [
+                        {
+                            "name": "Soft Lavender",
+                            "hex": "#ddccff",
+                            "rgb": [221, 204, 255],
+                            "culturalMeaning": "transience, subtle beauty",
+                            "usage": ["textiles", "accent walls"],
+                            "seasonality": ["all"]
+                        }
+                    ]
+                },
+                {
+                    "philosophyId": "hygge",
+                    "elementType": "colorPalette",
+                    "name": "Warm Neutrals",
+                    "colors": [
+                        {
+                            "name": "Cotton White",
+                            "hex": "#F0F0F0",
+                            "rgb": [240, 240, 240],
+                            "culturalMeaning": "comfort, simplicity",
+                            "usage": ["walls", "linens"],
+                            "seasonality": ["all"]
+                        }
+                    ]
+                },
+                {
+                    "philosophyId": "modern-contemporary",
+                    "elementType": "colorPalette",
+                    "name": "Monochromatic",
+                    "colors": [
+                        {
+                            "name": "Pure White",
+                            "hex": "#FFFFFF",
+                            "rgb": [255, 255, 255],
+                            "culturalMeaning": "clarity, minimalism",
+                            "usage": ["walls", "surfaces"],
+                            "seasonality": ["all"]
+                        }
+                    ]
+                }
+            ]
+            
+            await self.cultural_db.design_elements.insert_many(design_elements_data)
+            logger.info(f"Created {len(design_elements_data)} design elements")
+            
+            # Create indexes
+            await self.cultural_db.philosophies.create_index([("philosophyId", 1)])
+            await self.cultural_db.design_elements.create_index([("philosophyId", 1), ("elementType", 1)])
+            logger.info("Created indexes for performance")
+            
+        except Exception as e:
+            logger.error(f"Error initializing cultural database: {e}")
+            raise
 
 # Global service instance
 cultural_service = CulturalService()
