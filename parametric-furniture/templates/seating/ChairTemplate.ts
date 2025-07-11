@@ -6,8 +6,8 @@ import {
   CulturalProportions,
   MaterialType,
   CultureType
-} from '../../types/index';
-import { CulturalKnowledgeBase } from '../../cultural/CulturalKnowledgeBase';
+} from '../../types/index.js';
+import { CulturalKnowledgeBase } from '../../cultural/CulturalKnowledgeBase.js';
 
 export class ChairTemplate implements ParametricTemplate {
   private culturalDB: CulturalKnowledgeBase;

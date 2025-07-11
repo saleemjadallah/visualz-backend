@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CulturalKnowledgeBase } from '../../cultural/CulturalKnowledgeBase';
+import { CulturalKnowledgeBase } from '../../cultural/CulturalKnowledgeBase.js';
 export class TableTemplate {
     constructor() {
         this.culturalDB = new CulturalKnowledgeBase();

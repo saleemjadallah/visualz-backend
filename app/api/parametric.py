@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 PARAMETRIC_BASE_DIR = Path(__file__).parent.parent.parent / "parametric-furniture"
 
 # Mock data for testing until TypeScript templates are fully integrated
-MOCK_MODE = True  # Set to False once TypeScript integration is ready
+MOCK_MODE = False  # Set to True to use mock data instead of real TypeScript templates
 
 class CultureType(str, Enum):
     japanese = "japanese"
@@ -485,13 +485,71 @@ async def generate_complete_event(
         raise HTTPException(status_code=500, detail=f"Complete event generation failed: {str(e)}")
 
 # Helper functions
+async def call_typescript_template(template_type: str, parameters: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Call TypeScript/Node.js template generation
+    """
+    try:
+        # Prepare the template execution script path - use simple bridge for now
+        template_script = PARAMETRIC_BASE_DIR / "templates" / "simple-bridge.js"
+        
+        if not template_script.exists():
+            logger.warning(f"TypeScript template script not found at {template_script}")
+            return None
+        
+        # Prepare parameters for Node.js execution
+        node_params = {
+            "template_type": template_type,
+            "parameters": parameters,
+            "output_format": "json"
+        }
+        
+        # Execute Node.js script
+        cmd = [
+            "node",
+            str(template_script),
+            json.dumps(node_params)
+        ]
+        
+        logger.info(f"Executing TypeScript template: {template_type}")
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=str(PARAMETRIC_BASE_DIR)
+        )
+        
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode == 0:
+            try:
+                result = json.loads(stdout.decode())
+                logger.info(f"✅ TypeScript template {template_type} executed successfully")
+                return result
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse TypeScript template output: {e}")
+                logger.error(f"Raw output: {stdout.decode()[:500]}")
+                return None
+        else:
+            logger.error(f"TypeScript template execution failed: {stderr.decode()}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error calling TypeScript template: {str(e)}")
+        return None
+
 async def run_parametric_generation(template_type: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
     """
     Run parametric generation using Node.js/TypeScript templates
     """
     try:
-        # In production, this would call the actual TypeScript parametric generation
-        # For now, return mock data that matches the expected structure
+        # Call actual TypeScript parametric generation
+        result = await call_typescript_template(template_type, parameters)
+        if result:
+            return result
+        
+        # Fallback to mock data if TypeScript execution fails
+        logger.warning(f"TypeScript template execution failed for {template_type}, using fallback mock data")
         
         if template_type == "furniture":
             return {

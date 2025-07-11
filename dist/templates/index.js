@@ -1,29 +1,32 @@
 // Parametric Template Exports - All Available Templates
 // Furniture Templates
-export { ChairTemplate } from './seating/ChairTemplate';
-export { EnhancedChairTemplate } from './seating/EnhancedChairTemplate';
-export { TableTemplate } from './tables/TableTemplate';
-export { EnhancedTableTemplate } from './tables/EnhancedTableTemplate';
-export { EnhancedPlaygroundTemplate } from './playground/EnhancedPlaygroundTemplate';
+export { ChairTemplate } from './seating/ChairTemplate.js';
+export { EnhancedChairTemplate } from './seating/EnhancedChairTemplate.js';
+export { TableTemplate } from './tables/TableTemplate.js';
+export { EnhancedTableTemplate } from './tables/EnhancedTableTemplate.js';
+export { EnhancedPlaygroundTemplate } from './playground/EnhancedPlaygroundTemplate.js';
 // System Templates (Specialized Infrastructure)
-export { LightingTemplate } from './lighting/LightingTemplate';
-export { FloralTemplate } from './floral/FloralTemplate';
-export { StageTemplate } from './stage/StageTemplate';
+export { LightingTemplate } from './lighting/LightingTemplate.js';
+export { FloralTemplate } from './floral/FloralTemplate.js';
+export { StageTemplate } from './stage/StageTemplate.js';
 // Tier 1 System Templates (Newly Added)
-export { ClimateTemplate } from './climate/ClimateTemplate';
-export { SecurityTemplate } from './security/SecurityTemplate';
-export { AVTemplate } from './av/AVTemplate';
+export { ClimateTemplate } from './climate/ClimateTemplate.js';
+export { SecurityTemplate } from './security/SecurityTemplate.js';
+export { AVTemplate } from './av/AVTemplate.js';
 // Tier 2 System Templates (Final Addition)
-export { LandscapeTemplate } from './landscape/LandscapeTemplate';
-export { StructureTemplate } from './structure/StructureTemplate';
-export { InteractiveTemplate } from './interactive/InteractiveTemplate';
+export { LandscapeTemplate } from './landscape/LandscapeTemplate.js';
+export { StructureTemplate } from './structure/StructureTemplate.js';
+export { InteractiveTemplate } from './interactive/InteractiveTemplate.js';
+// Celebration Templates
+export { CelebratoryTemplate, QuinceañeraTemplate, BarBatMitzvahTemplate, KoreanDoljanchTemplate } from './celebratory/CelebratoryTemplate.js';
 // Export testing functions
-export { createTestClimateSystem } from './climate/ClimateTemplate';
-export { createTestSecuritySystem } from './security/SecurityTemplate';
-export { createTestAVSystem } from './av/AVTemplate';
-export { createTestLandscape } from './landscape/LandscapeTemplate';
-export { createTestStructure } from './structure/StructureTemplate';
-export { createTestInteractiveExperience } from './interactive/InteractiveTemplate';
+export { createTestClimateSystem } from './climate/ClimateTemplate.js';
+export { createTestSecuritySystem } from './security/SecurityTemplate.js';
+export { createTestAVSystem } from './av/AVTemplate.js';
+export { createTestLandscape } from './landscape/LandscapeTemplate.js';
+export { createTestStructure } from './structure/StructureTemplate.js';
+export { createTestInteractiveExperience } from './interactive/InteractiveTemplate.js';
+export { createTestQuinceañera, createTestBarMitzvah, createTestDoljanchi } from './celebratory/CelebratoryTemplate.js';
 // Template Categories for Organization
 export const FURNITURE_TEMPLATES = [
     'chair', 'dining-table', 'coffee-table', 'side-table'
@@ -31,7 +34,7 @@ export const FURNITURE_TEMPLATES = [
 export const SYSTEM_TEMPLATES = [
     'lighting-system', 'floral-arrangement', 'stage-system',
     'climate-control', 'security-system', 'av-system',
-    'landscape-design', 'architectural-structure', 'interactive-experience'
+    'landscape-design', 'architectural-structure', 'interactive-experience', 'celebratory-props'
 ];
 export const ALL_TEMPLATES = [
     ...FURNITURE_TEMPLATES,
@@ -133,6 +136,14 @@ export const TEMPLATE_METADATA = {
         description: 'Digital art, immersive installations, and interactive technology',
         complexity: 'expert',
         culturalSupport: ['japanese', 'scandinavian', 'italian', 'modern', 'universal']
+    },
+    // Celebration Template
+    'celebratory-props': {
+        category: 'system',
+        name: 'Celebratory Props & Themed Decorations Template',
+        description: 'Cultural celebration systems including quinceañera, bar/bat mitzvah, doljanchi, and themed party decorations',
+        complexity: 'expert',
+        culturalSupport: ['mexican', 'jewish', 'korean', 'american', 'japanese', 'italian', 'modern', 'multi-cultural']
     }
 };
 // Helper function to get template by category
@@ -167,6 +178,14 @@ export const COMPLEXITY_LEVELS = {
         description: 'Professional-grade systems requiring domain expertise',
         skillLevel: 'Expert',
         estimatedTime: '30+ minutes'
+    },
+    'orchestration': {
+        description: 'Master-level orchestration of multiple templates and systems',
+        skillLevel: 'Master',
+        estimatedTime: '45+ minutes'
     }
 };
+// Orchestration System Export
+export { EventOrchestrationMaster } from '../orchestration/EventOrchestrationMaster';
+export { CulturalAnalyzer, SpatialPlanner, ExperienceDesigner, QualityValidator } from '../orchestration/OrchestrationUtils';
 //# sourceMappingURL=index.js.map

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ParametricParameters, ParametricTemplate, FurnitureMetadata, CulturalProportions, CultureType } from '../../types/index';
+import { ParametricParameters, ParametricTemplate, FurnitureMetadata, CulturalProportions, CultureType } from '../../types/index.js';
 export declare class ChairTemplate implements ParametricTemplate {
     private culturalDB;
     constructor();

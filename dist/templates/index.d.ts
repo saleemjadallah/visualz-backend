@@ -1,32 +1,35 @@
-export { ChairTemplate } from './seating/ChairTemplate';
-export { EnhancedChairTemplate } from './seating/EnhancedChairTemplate';
-export { TableTemplate } from './tables/TableTemplate';
-export { EnhancedTableTemplate } from './tables/EnhancedTableTemplate';
-export { EnhancedPlaygroundTemplate } from './playground/EnhancedPlaygroundTemplate';
-export { LightingTemplate } from './lighting/LightingTemplate';
-export { FloralTemplate } from './floral/FloralTemplate';
-export { StageTemplate } from './stage/StageTemplate';
-export { ClimateTemplate } from './climate/ClimateTemplate';
-export { SecurityTemplate } from './security/SecurityTemplate';
-export { AVTemplate } from './av/AVTemplate';
-export { LandscapeTemplate } from './landscape/LandscapeTemplate';
-export { StructureTemplate } from './structure/StructureTemplate';
-export { InteractiveTemplate } from './interactive/InteractiveTemplate';
-export type { ClimateParameters, CulturalClimateData } from './climate/ClimateTemplate';
-export type { SecurityParameters, CulturalSecurityData } from './security/SecurityTemplate';
-export type { AVParameters, CulturalAVData } from './av/AVTemplate';
-export type { LandscapeParameters, CulturalGardenData } from './landscape/LandscapeTemplate';
-export type { StructureParameters, CulturalArchitectureData } from './structure/StructureTemplate';
-export type { InteractiveParameters, CulturalInteractionData } from './interactive/InteractiveTemplate';
-export { createTestClimateSystem } from './climate/ClimateTemplate';
-export { createTestSecuritySystem } from './security/SecurityTemplate';
-export { createTestAVSystem } from './av/AVTemplate';
-export { createTestLandscape } from './landscape/LandscapeTemplate';
-export { createTestStructure } from './structure/StructureTemplate';
-export { createTestInteractiveExperience } from './interactive/InteractiveTemplate';
+export { ChairTemplate } from './seating/ChairTemplate.js';
+export { EnhancedChairTemplate } from './seating/EnhancedChairTemplate.js';
+export { TableTemplate } from './tables/TableTemplate.js';
+export { EnhancedTableTemplate } from './tables/EnhancedTableTemplate.js';
+export { EnhancedPlaygroundTemplate } from './playground/EnhancedPlaygroundTemplate.js';
+export { LightingTemplate } from './lighting/LightingTemplate.js';
+export { FloralTemplate } from './floral/FloralTemplate.js';
+export { StageTemplate } from './stage/StageTemplate.js';
+export { ClimateTemplate } from './climate/ClimateTemplate.js';
+export { SecurityTemplate } from './security/SecurityTemplate.js';
+export { AVTemplate } from './av/AVTemplate.js';
+export { LandscapeTemplate } from './landscape/LandscapeTemplate.js';
+export { StructureTemplate } from './structure/StructureTemplate.js';
+export { InteractiveTemplate } from './interactive/InteractiveTemplate.js';
+export { CelebratoryTemplate, QuinceañeraTemplate, BarBatMitzvahTemplate, KoreanDoljanchTemplate } from './celebratory/CelebratoryTemplate.js';
+export type { ClimateParameters, CulturalClimateData } from './climate/ClimateTemplate.js';
+export type { SecurityParameters, CulturalSecurityData } from './security/SecurityTemplate.js';
+export type { AVParameters, CulturalAVData } from './av/AVTemplate.js';
+export type { LandscapeParameters, CulturalGardenData } from './landscape/LandscapeTemplate.js';
+export type { StructureParameters, CulturalArchitectureData } from './structure/StructureTemplate.js';
+export type { InteractiveParameters, CulturalInteractionData } from './interactive/InteractiveTemplate.js';
+export type { CelebratoryParameters, CulturalCelebrationData } from './celebratory/CelebratoryTemplate.js';
+export { createTestClimateSystem } from './climate/ClimateTemplate.js';
+export { createTestSecuritySystem } from './security/SecurityTemplate.js';
+export { createTestAVSystem } from './av/AVTemplate.js';
+export { createTestLandscape } from './landscape/LandscapeTemplate.js';
+export { createTestStructure } from './structure/StructureTemplate.js';
+export { createTestInteractiveExperience } from './interactive/InteractiveTemplate.js';
+export { createTestQuinceañera, createTestBarMitzvah, createTestDoljanchi } from './celebratory/CelebratoryTemplate.js';
 export declare const FURNITURE_TEMPLATES: readonly ["chair", "dining-table", "coffee-table", "side-table"];
-export declare const SYSTEM_TEMPLATES: readonly ["lighting-system", "floral-arrangement", "stage-system", "climate-control", "security-system", "av-system", "landscape-design", "architectural-structure", "interactive-experience"];
-export declare const ALL_TEMPLATES: readonly ["chair", "dining-table", "coffee-table", "side-table", "lighting-system", "floral-arrangement", "stage-system", "climate-control", "security-system", "av-system", "landscape-design", "architectural-structure", "interactive-experience"];
+export declare const SYSTEM_TEMPLATES: readonly ["lighting-system", "floral-arrangement", "stage-system", "climate-control", "security-system", "av-system", "landscape-design", "architectural-structure", "interactive-experience", "celebratory-props"];
+export declare const ALL_TEMPLATES: readonly ["chair", "dining-table", "coffee-table", "side-table", "lighting-system", "floral-arrangement", "stage-system", "climate-control", "security-system", "av-system", "landscape-design", "architectural-structure", "interactive-experience", "celebratory-props"];
 export declare const TEMPLATE_METADATA: {
     readonly chair: {
         readonly category: "furniture";
@@ -119,9 +122,16 @@ export declare const TEMPLATE_METADATA: {
         readonly complexity: "expert";
         readonly culturalSupport: readonly ["japanese", "scandinavian", "italian", "modern", "universal"];
     };
+    readonly 'celebratory-props': {
+        readonly category: "system";
+        readonly name: "Celebratory Props & Themed Decorations Template";
+        readonly description: "Cultural celebration systems including quinceañera, bar/bat mitzvah, doljanchi, and themed party decorations";
+        readonly complexity: "expert";
+        readonly culturalSupport: readonly ["mexican", "jewish", "korean", "american", "japanese", "italian", "modern", "multi-cultural"];
+    };
 };
 export declare function getTemplatesByCategory(category: 'furniture' | 'system'): string[];
-export declare function getSupportedCultures(templateKey: string): readonly ["japanese", "scandinavian", "italian", "modern"] | readonly ["japanese", "scandinavian", "italian", "modern", "traditional"] | readonly ["japanese", "scandinavian", "italian", "modern", "international"] | readonly ["japanese", "scandinavian", "italian", "french", "english", "modern"] | readonly ["japanese", "scandinavian", "italian", "modern", "universal"];
+export declare function getSupportedCultures(templateKey: string): readonly ["japanese", "scandinavian", "italian", "modern"] | readonly ["japanese", "scandinavian", "italian", "modern", "traditional"] | readonly ["japanese", "scandinavian", "italian", "modern", "international"] | readonly ["japanese", "scandinavian", "italian", "french", "english", "modern"] | readonly ["japanese", "scandinavian", "italian", "modern", "universal"] | readonly ["mexican", "jewish", "korean", "american", "japanese", "italian", "modern", "multi-cultural"];
 export declare const COMPLEXITY_LEVELS: {
     readonly basic: {
         readonly description: "Simple parametric generation with basic cultural adaptation";
@@ -143,5 +153,13 @@ export declare const COMPLEXITY_LEVELS: {
         readonly skillLevel: "Expert";
         readonly estimatedTime: "30+ minutes";
     };
+    readonly orchestration: {
+        readonly description: "Master-level orchestration of multiple templates and systems";
+        readonly skillLevel: "Master";
+        readonly estimatedTime: "45+ minutes";
+    };
 };
+export { EventOrchestrationMaster } from '../orchestration/EventOrchestrationMaster';
+export type { EventOrchestrationParameters, OrchestrationResult } from '../orchestration/EventOrchestrationMaster';
+export { CulturalAnalyzer, SpatialPlanner, ExperienceDesigner, QualityValidator } from '../orchestration/OrchestrationUtils';
 //# sourceMappingURL=index.d.ts.map
