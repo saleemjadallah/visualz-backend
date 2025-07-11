@@ -3,9 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
-from app.api import auth, projects, designs, ai, uploads, cv_analysis, cultural, websocket, cultural_philosophy, parametric_furniture
-# Temporarily disable parametric router to fix health check issues
-# from app.api import parametric
+from app.api import auth, projects, designs, ai, uploads, cv_analysis, cultural, websocket, cultural_philosophy, parametric_furniture, parametric
 from app.services.database import init_db, close_db
 
 @asynccontextmanager
@@ -55,8 +53,7 @@ app.include_router(cultural.router, prefix="/api/cultural", tags=["cultural"])
 app.include_router(cultural_philosophy.router, prefix="/api/cultural-philosophy", tags=["cultural_philosophy"])
 app.include_router(websocket.router, prefix="/api/ws", tags=["websocket"])
 app.include_router(parametric_furniture.router, prefix="/api/parametric-furniture", tags=["parametric_furniture"])
-# Temporarily disable parametric router to fix health check issues
-# app.include_router(parametric.router, prefix="/api/parametric", tags=["parametric"])
+app.include_router(parametric.router, prefix="/api/parametric", tags=["parametric"])
 
 @app.get("/")
 async def root():

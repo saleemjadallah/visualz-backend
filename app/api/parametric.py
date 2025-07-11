@@ -10,16 +10,9 @@ import asyncio
 from datetime import datetime
 from pathlib import Path
 
-# Import auth and user models with error handling
-try:
-    from app.api.auth import get_current_user
-    from app.models.user import User
-except ImportError:
-    # Fallback for development - make auth optional
-    def get_current_user():
-        return None
-    class User:
-        id: str = "test_user"
+# Import auth and user models
+from app.api.auth import get_current_user
+from app.models.user import User
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -138,7 +131,7 @@ class CompleteEventResult(BaseModel):
 async def generate_parametric_furniture(
     request: Dict[str, Any],
     background_tasks: BackgroundTasks,
-    current_user: Optional[User] = None  # Make optional for testing
+    current_user: User = Depends(get_current_user)
 ):
     """
     Generate parametric furniture using AI and cultural intelligence
@@ -199,7 +192,7 @@ async def generate_parametric_furniture(
 async def generate_parametric_lighting(
     request: Dict[str, Any],
     background_tasks: BackgroundTasks,
-    current_user: Optional[User] = None
+    current_user: User = Depends(get_current_user)
 ):
     """
     Generate parametric lighting using AI and cultural intelligence
@@ -242,7 +235,7 @@ async def generate_parametric_lighting(
 async def generate_parametric_floral(
     request: Dict[str, Any],
     background_tasks: BackgroundTasks,
-    current_user: Optional[User] = None
+    current_user: User = Depends(get_current_user)
 ):
     """
     Generate parametric floral arrangements using AI and cultural intelligence
@@ -289,7 +282,7 @@ async def generate_parametric_floral(
 async def generate_parametric_stage(
     request: Dict[str, Any],
     background_tasks: BackgroundTasks,
-    current_user: Optional[User] = None
+    current_user: User = Depends(get_current_user)
 ):
     """
     Generate parametric stage/entertainment systems using AI and cultural intelligence
@@ -333,7 +326,7 @@ async def generate_parametric_stage(
 async def render_complete_scene(
     scene_data: Dict[str, Any],
     background_tasks: BackgroundTasks,
-    current_user: Optional[User] = None
+    current_user: User = Depends(get_current_user)
 ):
     """
     Render complete 3D scene with all parametric elements
@@ -379,7 +372,7 @@ async def render_complete_scene(
 async def generate_complete_event(
     event_spec: CompleteEventSpec,
     background_tasks: BackgroundTasks,
-    current_user: Optional[User] = None
+    current_user: User = Depends(get_current_user)
 ):
     """
     Generate complete event with furniture, lighting, floral, and stage systems
