@@ -13,9 +13,53 @@ from pathlib import Path
 # Import auth and user models
 from app.api.auth import get_current_user
 from app.models.user import User
+from typing import Optional as OptionalType
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.core.security import verify_token
+from bson import ObjectId
+from app.services.database import get_database
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# Optional authentication for development/demo purposes
+security_optional = HTTPBearer(auto_error=False)
+
+async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional)) -> Optional[User]:
+    """Get current user if authenticated, otherwise return None for demo purposes."""
+    if not credentials:
+        logger.info("No authentication provided - running in demo mode")
+        return None
+    
+    try:
+        token_data = verify_token(credentials.credentials)
+        if not token_data:
+            return None
+        
+        user_id = token_data.get("sub")
+        if not user_id:
+            return None
+        
+        # Get user from database
+        db = await get_database()
+        user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
+        if not user_doc:
+            return None
+        
+        # Convert to User model
+        user = User(
+            id=str(user_doc["_id"]),
+            email=user_doc["email"],
+            full_name=user_doc["full_name"],
+            preferences=user_doc.get("preferences", {}),
+            is_active=user_doc["is_active"],
+            created_at=user_doc["created_at"],
+            updated_at=user_doc["updated_at"]
+        )
+        return user
+    except Exception as e:
+        logger.warning(f"Optional auth failed: {str(e)} - continuing without auth")
+        return None
 
 # Base directory for parametric templates
 PARAMETRIC_BASE_DIR = Path(__file__).parent.parent.parent / "parametric-furniture"
@@ -131,7 +175,7 @@ class CompleteEventResult(BaseModel):
 async def generate_parametric_furniture(
     request: Dict[str, Any],
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Generate parametric furniture using AI and cultural intelligence
@@ -192,7 +236,7 @@ async def generate_parametric_furniture(
 async def generate_parametric_lighting(
     request: Dict[str, Any],
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Generate parametric lighting using AI and cultural intelligence
@@ -235,7 +279,7 @@ async def generate_parametric_lighting(
 async def generate_parametric_floral(
     request: Dict[str, Any],
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Generate parametric floral arrangements using AI and cultural intelligence
@@ -282,7 +326,7 @@ async def generate_parametric_floral(
 async def generate_parametric_stage(
     request: Dict[str, Any],
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Generate parametric stage/entertainment systems using AI and cultural intelligence
@@ -326,7 +370,7 @@ async def generate_parametric_stage(
 async def render_complete_scene(
     scene_data: Dict[str, Any],
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Render complete 3D scene with all parametric elements
@@ -372,7 +416,7 @@ async def render_complete_scene(
 async def generate_complete_event(
     event_spec: CompleteEventSpec,
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Generate complete event with furniture, lighting, floral, and stage systems
