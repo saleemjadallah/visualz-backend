@@ -1,10 +1,22 @@
 import * as THREE from 'three';
-import { ParametricParameters, GenerationResult, UserFurnitureRequest, FurnitureType, CultureType, LightingParameters, FloralParameters, StageParameters } from '../types/index';
+import { ParametricParameters, GenerationResult, UserFurnitureRequest, FurnitureType, CultureType, LightingParameters, FloralParameters, StageParameters, LandscapeParameters, StructureParameters, InteractiveParameters } from '../types/index';
+import { ClimateTemplate } from '../templates/climate/ClimateTemplate';
+import { SecurityTemplate } from '../templates/security/SecurityTemplate';
+import { AVTemplate } from '../templates/av/AVTemplate';
+import { LandscapeTemplate } from '../templates/landscape/LandscapeTemplate';
+import { StructureTemplate } from '../templates/structure/StructureTemplate';
+import { InteractiveTemplate } from '../templates/interactive/InteractiveTemplate';
 export declare class ParametricGenerationEngine {
     private templates;
     private lightingTemplate;
     private floralTemplate;
     private stageTemplate;
+    private climateTemplate;
+    private securityTemplate;
+    private avTemplate;
+    private landscapeTemplate;
+    private structureTemplate;
+    private interactiveTemplate;
     private culturalDB;
     private aiAnalyzer;
     private materialSystem;
@@ -82,5 +94,14 @@ export declare class ParametricGenerationEngine {
     private mapGuestCountToScale;
     private calculateFloralBudget;
     private calculateStageBudget;
+    getClimateTemplate(): ClimateTemplate;
+    getSecurityTemplate(): SecurityTemplate;
+    getAVTemplate(): AVTemplate;
+    getLandscapeTemplate(): LandscapeTemplate;
+    getStructureTemplate(): StructureTemplate;
+    getInteractiveTemplate(): InteractiveTemplate;
+    generateLandscapeDesign(parameters: LandscapeParameters): Promise<THREE.Group>;
+    generateArchitecturalStructure(parameters: StructureParameters): Promise<THREE.Group>;
+    generateInteractiveExperience(parameters: InteractiveParameters): Promise<THREE.Group>;
 }
 //# sourceMappingURL=ParametricGenerationEngine.d.ts.map

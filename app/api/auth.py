@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer as FastAPIHTTPBearer
 from datetime import datetime, timedelta
 from bson import ObjectId
 from typing import Optional
@@ -12,6 +12,7 @@ from app.services.database import get_database
 
 router = APIRouter()
 security = HTTPBearer()
+security_optional = FastAPIHTTPBearer(auto_error=False)
 logger = logging.getLogger(__name__)
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
@@ -81,6 +82,47 @@ async def get_current_user_from_token(token: str) -> Optional[User]:
         created_at=user_doc["created_at"],
         updated_at=user_doc["updated_at"]
     )
+
+async def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional)
+) -> Optional[User]:
+    """
+    Get current user if authenticated, otherwise return None for demo purposes.
+    This allows endpoints to work without authentication.
+    """
+    if not credentials:
+        logger.info("No authentication provided - running in demo mode")
+        return None
+    
+    try:
+        token_data = verify_token(credentials.credentials)
+        if not token_data:
+            return None
+        
+        user_id = token_data.get("sub")
+        if not user_id:
+            return None
+        
+        # Get user from database
+        db = await get_database()
+        user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
+        if not user_doc:
+            return None
+        
+        # Convert to User model
+        user = User(
+            id=str(user_doc["_id"]),
+            email=user_doc["email"],
+            full_name=user_doc["full_name"],
+            preferences=user_doc.get("preferences", {}),
+            is_active=user_doc["is_active"],
+            created_at=user_doc["created_at"],
+            updated_at=user_doc["updated_at"]
+        )
+        return user
+    except Exception as e:
+        logger.warning(f"Optional auth failed: {str(e)} - continuing without auth")
+        return None
 
 @router.post("/register", response_model=Token)
 async def register(user_data: UserCreate):

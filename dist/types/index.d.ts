@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-export type FurnitureType = 'chair' | 'sofa' | 'bench' | 'dining-table' | 'coffee-table' | 'side-table' | 'cabinet' | 'shelf' | 'chest' | 'ceiling-light' | 'table-lamp' | 'floor-lamp' | 'decorative-vase' | 'plant-pot' | 'wall-art' | 'lighting-system' | 'floral-arrangement' | 'stage-system';
+export type FurnitureType = 'chair' | 'sofa' | 'bench' | 'dining-table' | 'coffee-table' | 'side-table' | 'cabinet' | 'shelf' | 'chest' | 'ceiling-light' | 'table-lamp' | 'floor-lamp' | 'decorative-vase' | 'plant-pot' | 'wall-art' | 'lighting-system' | 'floral-arrangement' | 'stage-system' | 'climate-control' | 'security-system' | 'av-system' | 'landscape-design' | 'architectural-structure' | 'interactive-experience';
 export type CultureType = 'japanese' | 'scandinavian' | 'italian' | 'french' | 'modern';
 export type MaterialType = 'wood-oak' | 'wood-pine' | 'wood-cherry' | 'wood-bamboo' | 'wood-walnut' | 'wood-mahogany' | 'fabric-cotton' | 'fabric-linen' | 'fabric-silk' | 'fabric-wool' | 'fabric-velvet' | 'fabric-brocade' | 'metal-brass' | 'metal-steel' | 'metal-copper' | 'bronze-patina' | 'leather' | 'leather-fine' | 'leather-cognac' | 'leather-burgundy' | 'ceramic' | 'glass' | 'stone' | 'marble' | 'plastic' | 'composite' | 'synthetic-materials' | 'pastel-upholstery' | 'light-cane' | 'rich-tapestry' | 'heavy-brocade';
 export type StyleVariant = 'traditional' | 'contemporary' | 'rustic' | 'elegant' | 'minimalist' | 'ornate';
@@ -225,5 +225,123 @@ export interface StageParameters {
     hearingAssistance: boolean;
     visualAssistance: boolean;
 }
-export type TemplateParameters = ParametricParameters | LightingParameters | FloralParameters | StageParameters;
+export interface LandscapeParameters {
+    gardenStyle: 'japanese-zen' | 'english-cottage' | 'french-formal' | 'mediterranean' | 'modern-minimalist' | 'naturalistic';
+    season: 'spring' | 'summer' | 'autumn' | 'winter';
+    climate: 'temperate' | 'mediterranean' | 'tropical' | 'arid' | 'continental';
+    eventType: 'wedding-ceremony' | 'cocktail-reception' | 'garden-party' | 'corporate-retreat' | 'cultural-celebration';
+    guestCapacity: number;
+    duration: number;
+    timeOfDay: 'dawn' | 'morning' | 'midday' | 'afternoon' | 'evening' | 'night';
+    spaceDimensions: {
+        width: number;
+        depth: number;
+        totalArea: number;
+        existingFeatures: string[];
+    };
+    topography: 'flat' | 'gentle-slope' | 'terraced' | 'hillside' | 'waterfront';
+    soilConditions: 'clay' | 'sandy' | 'loam' | 'rocky' | 'wetland';
+    culture: 'japanese' | 'scandinavian' | 'italian' | 'french' | 'english' | 'modern';
+    formalityLevel: 'natural' | 'semi-formal' | 'formal' | 'architectural';
+    maintenanceLevel: 'low' | 'moderate' | 'high' | 'professional';
+    waterFeatures: boolean;
+    structuralElements: boolean;
+    lightingDesign: boolean;
+    fragranceGarden: boolean;
+    seasonalInterest: boolean;
+    nativePlants: boolean;
+    waterConservation: boolean;
+    wildlifeHabitat: boolean;
+    organicPractices: boolean;
+    budget: number;
+    installationTimeframe: number;
+    permanentVsTemporary: 'permanent' | 'semi-permanent' | 'temporary';
+    accessibilityRequired: boolean;
+    symbolicPlants: string[];
+    traditionalFeatures: string[];
+    ceremonialSpaces: string[];
+    colorSignificance: string[];
+}
+export interface StructureParameters {
+    architecturalStyle: 'pavilion' | 'pergola' | 'gazebo' | 'temporary-building' | 'canopy-system' | 'stage-platform';
+    scale: 'intimate' | 'medium' | 'grand' | 'monumental';
+    permanence: 'temporary' | 'semi-permanent' | 'permanent' | 'modular';
+    capacity: number;
+    loadRequirements: 'light' | 'moderate' | 'heavy' | 'dynamic';
+    weatherResistance: 'basic' | 'enhanced' | 'extreme' | 'all-weather';
+    seismicConsiderations: boolean;
+    culture: 'japanese' | 'scandinavian' | 'italian' | 'modern' | 'traditional';
+    culturalElements: string[];
+    symbolicMeaning: string[];
+    traditionalJoinery: boolean;
+    primaryFunction: 'ceremony' | 'performance' | 'gathering' | 'exhibition' | 'dining' | 'multi-purpose';
+    acousticRequirements: 'natural' | 'enhanced' | 'isolated' | 'amplified';
+    lightingIntegration: boolean;
+    serviceIntegration: boolean;
+    footprint: {
+        width: number;
+        depth: number;
+        height: number;
+        clearSpan: boolean;
+    };
+    orientation: number;
+    siteConditions: 'level' | 'sloped' | 'irregular' | 'waterfront';
+    structuralMaterial: 'wood' | 'steel' | 'concrete' | 'composite' | 'tensile' | 'hybrid';
+    cladding: 'none' | 'partial' | 'full' | 'adaptive';
+    roofingSystem: 'open' | 'covered' | 'retractable' | 'green-roof';
+    sustainableDesign: boolean;
+    energyGeneration: boolean;
+    rainwaterHarvesting: boolean;
+    naturalVentilation: boolean;
+    budget: number;
+    constructionTimeframe: number;
+    siteAccess: 'excellent' | 'good' | 'limited' | 'challenging';
+    permitRequirements: string[];
+    smartSystems: boolean;
+    adaptiveElements: boolean;
+    interactiveFeatures: boolean;
+    futureExpansion: boolean;
+}
+export interface InteractiveParameters {
+    experienceType: 'digital-art' | 'interactive-installation' | 'immersive-environment' | 'gamified-experience' | 'educational-journey';
+    interactionModel: 'touch' | 'gesture' | 'voice' | 'movement' | 'biometric' | 'multi-modal';
+    scalability: 'individual' | 'small-group' | 'crowd' | 'massive-multiplayer';
+    primaryTechnology: 'projection-mapping' | 'led-displays' | 'holographic' | 'augmented-reality' | 'virtual-reality' | 'mixed-reality';
+    sensorSystems: string[];
+    processingPower: 'basic' | 'professional' | 'enterprise' | 'supercomputing';
+    networkRequirements: 'offline' | 'local' | 'cloud-connected' | 'edge-computing';
+    culture: 'japanese' | 'scandinavian' | 'italian' | 'modern' | 'universal';
+    culturalNarratives: string[];
+    traditionModernBalance: number;
+    culturalSensitivity: 'high' | 'moderate' | 'flexible';
+    participantProfile: 'children' | 'adults' | 'seniors' | 'mixed-age' | 'accessibility-focused';
+    experienceDuration: number;
+    learningObjectives: string[];
+    emotionalJourney: string[];
+    spaceRequirements: {
+        width: number;
+        depth: number;
+        height: number;
+        clearZones: number[];
+    };
+    environmentalConditions: 'indoor' | 'outdoor' | 'variable' | 'extreme';
+    powerRequirements: number;
+    storyElements: string[];
+    interactiveContent: string[];
+    personalizedExperience: boolean;
+    dataCollection: 'none' | 'anonymous' | 'aggregate' | 'personalized';
+    accessibilityFeatures: string[];
+    multilingualSupport: boolean;
+    adaptiveInterfaces: boolean;
+    inclusiveDesign: boolean;
+    sustainableTechnology: boolean;
+    ethicalDataUse: boolean;
+    environmentalImpact: 'minimal' | 'moderate' | 'neutral' | 'positive';
+    digitalWellbeing: boolean;
+    budget: number;
+    developmentTimeframe: number;
+    maintenanceLevel: 'self-service' | 'minimal' | 'regular' | 'intensive';
+    updateFrequency: 'static' | 'periodic' | 'dynamic' | 'real-time';
+}
+export type TemplateParameters = ParametricParameters | LightingParameters | FloralParameters | StageParameters | LandscapeParameters | StructureParameters | InteractiveParameters;
 //# sourceMappingURL=index.d.ts.map

@@ -6,7 +6,9 @@ export type FurnitureType =
   | 'cabinet' | 'shelf' | 'chest'
   | 'ceiling-light' | 'table-lamp' | 'floor-lamp'
   | 'decorative-vase' | 'plant-pot' | 'wall-art'
-  | 'lighting-system' | 'floral-arrangement' | 'stage-system';
+  | 'lighting-system' | 'floral-arrangement' | 'stage-system'
+  | 'climate-control' | 'security-system' | 'av-system'
+  | 'landscape-design' | 'architectural-structure' | 'interactive-experience';
 
 export type CultureType = 
   | 'japanese' | 'scandinavian' | 'italian' 
@@ -280,5 +282,176 @@ export interface StageParameters {
   visualAssistance: boolean;
 }
 
+// New template parameter interfaces for final 3 templates
+export interface LandscapeParameters {
+  // Garden foundation
+  gardenStyle: 'japanese-zen' | 'english-cottage' | 'french-formal' | 'mediterranean' | 'modern-minimalist' | 'naturalistic';
+  season: 'spring' | 'summer' | 'autumn' | 'winter';
+  climate: 'temperate' | 'mediterranean' | 'tropical' | 'arid' | 'continental';
+  
+  // Event integration
+  eventType: 'wedding-ceremony' | 'cocktail-reception' | 'garden-party' | 'corporate-retreat' | 'cultural-celebration';
+  guestCapacity: number;
+  duration: number; // Hours
+  timeOfDay: 'dawn' | 'morning' | 'midday' | 'afternoon' | 'evening' | 'night';
+  
+  // Spatial requirements
+  spaceDimensions: {
+    width: number;
+    depth: number;
+    totalArea: number;
+    existingFeatures: string[];
+  };
+  topography: 'flat' | 'gentle-slope' | 'terraced' | 'hillside' | 'waterfront';
+  soilConditions: 'clay' | 'sandy' | 'loam' | 'rocky' | 'wetland';
+  
+  // Design philosophy
+  culture: 'japanese' | 'scandinavian' | 'italian' | 'french' | 'english' | 'modern';
+  formalityLevel: 'natural' | 'semi-formal' | 'formal' | 'architectural';
+  maintenanceLevel: 'low' | 'moderate' | 'high' | 'professional';
+  
+  // Feature requirements
+  waterFeatures: boolean;
+  structuralElements: boolean;
+  lightingDesign: boolean;
+  fragranceGarden: boolean;
+  seasonalInterest: boolean;
+  
+  // Sustainability focus
+  nativePlants: boolean;
+  waterConservation: boolean;
+  wildlifeHabitat: boolean;
+  organicPractices: boolean;
+  
+  // Practical constraints
+  budget: number;
+  installationTimeframe: number; // Weeks
+  permanentVsTemporary: 'permanent' | 'semi-permanent' | 'temporary';
+  accessibilityRequired: boolean;
+  
+  // Cultural elements
+  symbolicPlants: string[];
+  traditionalFeatures: string[];
+  ceremonialSpaces: string[];
+  colorSignificance: string[];
+}
+
+export interface StructureParameters {
+  // Architectural foundation
+  architecturalStyle: 'pavilion' | 'pergola' | 'gazebo' | 'temporary-building' | 'canopy-system' | 'stage-platform';
+  scale: 'intimate' | 'medium' | 'grand' | 'monumental';
+  permanence: 'temporary' | 'semi-permanent' | 'permanent' | 'modular';
+  
+  // Structural requirements
+  capacity: number;
+  loadRequirements: 'light' | 'moderate' | 'heavy' | 'dynamic';
+  weatherResistance: 'basic' | 'enhanced' | 'extreme' | 'all-weather';
+  seismicConsiderations: boolean;
+  
+  // Cultural design
+  culture: 'japanese' | 'scandinavian' | 'italian' | 'modern' | 'traditional';
+  culturalElements: string[];
+  symbolicMeaning: string[];
+  traditionalJoinery: boolean;
+  
+  // Functional integration
+  primaryFunction: 'ceremony' | 'performance' | 'gathering' | 'exhibition' | 'dining' | 'multi-purpose';
+  acousticRequirements: 'natural' | 'enhanced' | 'isolated' | 'amplified';
+  lightingIntegration: boolean;
+  serviceIntegration: boolean;
+  
+  // Spatial specifications
+  footprint: {
+    width: number;
+    depth: number;
+    height: number;
+    clearSpan: boolean;
+  };
+  orientation: number; // Degrees from north
+  siteConditions: 'level' | 'sloped' | 'irregular' | 'waterfront';
+  
+  // Material preferences
+  structuralMaterial: 'wood' | 'steel' | 'concrete' | 'composite' | 'tensile' | 'hybrid';
+  cladding: 'none' | 'partial' | 'full' | 'adaptive';
+  roofingSystem: 'open' | 'covered' | 'retractable' | 'green-roof';
+  
+  // Sustainability goals
+  sustainableDesign: boolean;
+  energyGeneration: boolean;
+  rainwaterHarvesting: boolean;
+  naturalVentilation: boolean;
+  
+  // Installation constraints
+  budget: number;
+  constructionTimeframe: number; // Weeks
+  siteAccess: 'excellent' | 'good' | 'limited' | 'challenging';
+  permitRequirements: string[];
+  
+  // Technology integration
+  smartSystems: boolean;
+  adaptiveElements: boolean;
+  interactiveFeatures: boolean;
+  futureExpansion: boolean;
+}
+
+export interface InteractiveParameters {
+  // Experience foundation
+  experienceType: 'digital-art' | 'interactive-installation' | 'immersive-environment' | 'gamified-experience' | 'educational-journey';
+  interactionModel: 'touch' | 'gesture' | 'voice' | 'movement' | 'biometric' | 'multi-modal';
+  scalability: 'individual' | 'small-group' | 'crowd' | 'massive-multiplayer';
+  
+  // Technology integration
+  primaryTechnology: 'projection-mapping' | 'led-displays' | 'holographic' | 'augmented-reality' | 'virtual-reality' | 'mixed-reality';
+  sensorSystems: string[];
+  processingPower: 'basic' | 'professional' | 'enterprise' | 'supercomputing';
+  networkRequirements: 'offline' | 'local' | 'cloud-connected' | 'edge-computing';
+  
+  // Cultural integration
+  culture: 'japanese' | 'scandinavian' | 'italian' | 'modern' | 'universal';
+  culturalNarratives: string[];
+  traditionModernBalance: number; // 0-1, 0=traditional, 1=modern
+  culturalSensitivity: 'high' | 'moderate' | 'flexible';
+  
+  // User experience design
+  participantProfile: 'children' | 'adults' | 'seniors' | 'mixed-age' | 'accessibility-focused';
+  experienceDuration: number; // Minutes
+  learningObjectives: string[];
+  emotionalJourney: string[];
+  
+  // Physical specifications
+  spaceRequirements: {
+    width: number;
+    depth: number;
+    height: number;
+    clearZones: number[];
+  };
+  environmentalConditions: 'indoor' | 'outdoor' | 'variable' | 'extreme';
+  powerRequirements: number; // Watts
+  
+  // Content and narrative
+  storyElements: string[];
+  interactiveContent: string[];
+  personalizedExperience: boolean;
+  dataCollection: 'none' | 'anonymous' | 'aggregate' | 'personalized';
+  
+  // Accessibility requirements
+  accessibilityFeatures: string[];
+  multilingualSupport: boolean;
+  adaptiveInterfaces: boolean;
+  inclusiveDesign: boolean;
+  
+  // Sustainability and ethics
+  sustainableTechnology: boolean;
+  ethicalDataUse: boolean;
+  environmentalImpact: 'minimal' | 'moderate' | 'neutral' | 'positive';
+  digitalWellbeing: boolean;
+  
+  // Practical constraints
+  budget: number;
+  developmentTimeframe: number; // Weeks
+  maintenanceLevel: 'self-service' | 'minimal' | 'regular' | 'intensive';
+  updateFrequency: 'static' | 'periodic' | 'dynamic' | 'real-time';
+}
+
 // Union type for all template parameters
-export type TemplateParameters = ParametricParameters | LightingParameters | FloralParameters | StageParameters;
+export type TemplateParameters = ParametricParameters | LightingParameters | FloralParameters | StageParameters | LandscapeParameters | StructureParameters | InteractiveParameters;

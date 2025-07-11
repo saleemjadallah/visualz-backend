@@ -15,6 +15,9 @@ import {
   LightingParameters,
   FloralParameters,
   StageParameters,
+  LandscapeParameters,
+  StructureParameters,
+  InteractiveParameters,
   TemplateParameters
 } from '../types/index';
 import { CulturalKnowledgeBase } from '../cultural/CulturalKnowledgeBase';
@@ -25,12 +28,24 @@ import { TableTemplate } from '../templates/tables/TableTemplate';
 import { LightingTemplate } from '../templates/lighting/LightingTemplate';
 import { FloralTemplate } from '../templates/floral/FloralTemplate';
 import { StageTemplate } from '../templates/stage/StageTemplate';
+import { ClimateTemplate } from '../templates/climate/ClimateTemplate';
+import { SecurityTemplate } from '../templates/security/SecurityTemplate';
+import { AVTemplate } from '../templates/av/AVTemplate';
+import { LandscapeTemplate } from '../templates/landscape/LandscapeTemplate';
+import { StructureTemplate } from '../templates/structure/StructureTemplate';
+import { InteractiveTemplate } from '../templates/interactive/InteractiveTemplate';
 
 export class ParametricGenerationEngine {
   private templates: Map<FurnitureType, ParametricTemplate>;
   private lightingTemplate: LightingTemplate;
   private floralTemplate: FloralTemplate;
   private stageTemplate: StageTemplate;
+  private climateTemplate: ClimateTemplate;
+  private securityTemplate: SecurityTemplate;
+  private avTemplate: AVTemplate;
+  private landscapeTemplate: LandscapeTemplate;
+  private structureTemplate: StructureTemplate;
+  private interactiveTemplate: InteractiveTemplate;
   private culturalDB: CulturalKnowledgeBase;
   private aiAnalyzer: AIParameterAnalyzer;
   private materialSystem: ParametricMaterialSystem;
@@ -42,6 +57,12 @@ export class ParametricGenerationEngine {
     this.lightingTemplate = new LightingTemplate();
     this.floralTemplate = new FloralTemplate();
     this.stageTemplate = new StageTemplate();
+    this.climateTemplate = new ClimateTemplate();
+    this.securityTemplate = new SecurityTemplate();
+    this.avTemplate = new AVTemplate();
+    this.landscapeTemplate = new LandscapeTemplate();
+    this.structureTemplate = new StructureTemplate();
+    this.interactiveTemplate = new InteractiveTemplate();
     this.culturalDB = new CulturalKnowledgeBase();
     this.aiAnalyzer = new AIParameterAnalyzer();
     this.materialSystem = new ParametricMaterialSystem();
@@ -235,7 +256,11 @@ export class ParametricGenerationEngine {
     this.templates.set('dining-table', new TableTemplate());
     this.templates.set('coffee-table', new TableTemplate());
     this.templates.set('side-table', new TableTemplate());
-    // Add more templates as they're implemented
+    
+    // System templates (non-furniture)
+    // Note: Climate, Security, and AV templates are specialized systems
+    // They use their own parameter interfaces and generation methods
+    // Access via: climateTemplate, securityTemplate, avTemplate
   }
 
   private generateCacheKey(parameters: ParametricParameters): string {
@@ -815,5 +840,64 @@ export class ParametricGenerationEngine {
       'luxury': 15000
     };
     return budgets[budgetRange] || 3000;
+  }
+
+  // Access specialized system templates
+  getClimateTemplate(): ClimateTemplate {
+    return this.climateTemplate;
+  }
+
+  getSecurityTemplate(): SecurityTemplate {
+    return this.securityTemplate;
+  }
+
+  getAVTemplate(): AVTemplate {
+    return this.avTemplate;
+  }
+
+  getLandscapeTemplate(): LandscapeTemplate {
+    return this.landscapeTemplate;
+  }
+
+  getStructureTemplate(): StructureTemplate {
+    return this.structureTemplate;
+  }
+
+  getInteractiveTemplate(): InteractiveTemplate {
+    return this.interactiveTemplate;
+  }
+
+  // New generation methods for final 3 templates
+  async generateLandscapeDesign(parameters: LandscapeParameters): Promise<THREE.Group> {
+    console.log(`🌸 Generating landscape design for ${parameters.culture} ${parameters.gardenStyle}...`);
+    
+    const startTime = performance.now();
+    const landscapeSystem = this.landscapeTemplate.generateLandscape(parameters);
+    const generationTime = performance.now() - startTime;
+    
+    console.log(`✨ Landscape design generated in ${generationTime.toFixed(2)}ms`);
+    return landscapeSystem;
+  }
+
+  async generateArchitecturalStructure(parameters: StructureParameters): Promise<THREE.Group> {
+    console.log(`🏗️ Generating architectural structure for ${parameters.culture} ${parameters.architecturalStyle}...`);
+    
+    const startTime = performance.now();
+    const structureSystem = this.structureTemplate.generateStructure(parameters);
+    const generationTime = performance.now() - startTime;
+    
+    console.log(`✨ Architectural structure generated in ${generationTime.toFixed(2)}ms`);
+    return structureSystem;
+  }
+
+  async generateInteractiveExperience(parameters: InteractiveParameters): Promise<THREE.Group> {
+    console.log(`🎮 Generating interactive experience for ${parameters.culture} ${parameters.experienceType}...`);
+    
+    const startTime = performance.now();
+    const interactiveSystem = this.interactiveTemplate.generateInteractiveExperience(parameters);
+    const generationTime = performance.now() - startTime;
+    
+    console.log(`✨ Interactive experience generated in ${generationTime.toFixed(2)}ms`);
+    return interactiveSystem;
   }
 }
