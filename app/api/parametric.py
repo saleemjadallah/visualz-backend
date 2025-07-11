@@ -183,9 +183,31 @@ async def generate_parametric_furniture(
     try:
         start_time = datetime.now()
         
-        # Extract request data
-        furniture_request = UserFurnitureRequest(**request.get('request', {}))
-        options = GenerationOptions(**request.get('options', {}))
+        # Log the incoming request for debugging
+        logger.info(f"Received furniture generation request: {request}")
+        
+        # Handle different request formats
+        if 'request' in request:
+            # Format: {"request": {...}, "options": {...}}
+            furniture_data = request.get('request', {})
+            options_data = request.get('options', {})
+        else:
+            # Format: direct data
+            furniture_data = request
+            options_data = {}
+        
+        logger.info(f"Parsed furniture_data: {furniture_data}")
+        logger.info(f"Parsed options_data: {options_data}")
+        
+        # Extract request data with better error handling
+        try:
+            furniture_request = UserFurnitureRequest(**furniture_data)
+            options = GenerationOptions(**options_data)
+        except Exception as parse_error:
+            logger.error(f"Failed to parse request data: {str(parse_error)}")
+            logger.error(f"furniture_data: {furniture_data}")
+            logger.error(f"options_data: {options_data}")
+            raise HTTPException(status_code=400, detail=f"Invalid request format: {str(parse_error)}")
         
         logger.info(f"Generating furniture for {furniture_request.culture} {furniture_request.eventType}")
         
@@ -228,8 +250,14 @@ async def generate_parametric_furniture(
         logger.info(f"Generated furniture in {generation_time:.2f}s with cultural score {cultural_score}")
         return response
         
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
         logger.error(f"Error generating parametric furniture: {str(e)}")
+        logger.error(f"Request data: {request}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Furniture generation failed: {str(e)}")
 
 @router.post("/lighting/generate")
@@ -709,6 +737,17 @@ def get_mock_furniture_result(request: UserFurnitureRequest) -> Dict[str, Any]:
                 "culturalScore": 88.5
             }
         ],
-        "culturalElements": get_cultural_lighting_elements(request.culture),
+        "culturalElements": get_cultural_furniture_elements(request.culture),
         "recommendations": [f"Consider {request.culture} design elements"]
     }
+
+def get_cultural_furniture_elements(culture: str) -> List[str]:
+    """Get cultural furniture design elements"""
+    elements = {
+        "japanese": ["clean lines", "natural materials", "low profile", "tatami compatibility"],
+        "french": ["elegant curves", "ornate details", "luxury fabrics", "classical proportions"],
+        "italian": ["rich materials", "artistic details", "warm colors", "craftsmanship"],
+        "scandinavian": ["minimalist design", "light woods", "functional beauty", "hygge comfort"],
+        "modern": ["geometric forms", "mixed materials", "contemporary styling", "innovative design"]
+    }
+    return elements.get(culture, elements["modern"])
