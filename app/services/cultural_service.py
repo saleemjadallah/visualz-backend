@@ -29,7 +29,29 @@ class CulturalService:
             self.db = await get_database()
             # Connect to cultural database
             client = self.db.client
-            self.cultural_db = client['designvisualz_cultural']
+            
+            # Try different database names for cultural data (Visual first since that's where data is stored)
+            cultural_db_names = ['Visual', 'designvisualz_cultural', 'designvisualz']
+            self.cultural_db = None
+            
+            for db_name in cultural_db_names:
+                try:
+                    test_db = client[db_name]
+                    collections = await test_db.list_collection_names()
+                    # Check if this database has cultural collections
+                    cultural_collections = ['philosophies', 'design_elements', 'cultural_elements']
+                    if any(col in collections for col in cultural_collections):
+                        self.cultural_db = test_db
+                        logger.info(f"Found cultural database: {db_name}")
+                        break
+                except Exception as e:
+                    logger.debug(f"Database {db_name} not accessible: {e}")
+                    continue
+            
+            if not self.cultural_db:
+                # Default to Visual database (as per .env configuration)
+                self.cultural_db = client['Visual']
+                logger.info("Using default cultural database: Visual")
             
             # Check if database exists by listing collections
             collections = await self.cultural_db.list_collection_names()
