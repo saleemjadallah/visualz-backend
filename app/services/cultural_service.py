@@ -12,10 +12,7 @@ from datetime import datetime
 import asyncio
 
 from app.services.database import get_database
-from app.models.cultural import (
-    CulturalPhilosophy, DesignElement, EventApplication, 
-    CulturalValidationResult, FusionCompatibility
-)
+from app.models.cultural import CulturalValidationResult
 
 logger = logging.getLogger(__name__)
 
