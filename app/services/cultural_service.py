@@ -1,380 +1,369 @@
-from typing import List, Dict, Any, Optional
+"""
+Cultural Service - AI Integration with Cultural Database
+Provides cultural validation, recommendations, and design elements
+for event visualization system
+"""
+
 import logging
+from typing import Dict, List, Optional, Any, Tuple
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
+from datetime import datetime
+import asyncio
+
 from app.services.database import get_database
 from app.models.cultural import (
-    CulturalElement, CulturalElementCreate, CulturalElementInDB,
-    CulturalValidationRequest, CulturalValidationResult,
-    CulturalGuideline, CulturalFusionRule
-)
-from app.services.cultural_categorization import (
-    CulturalCategorizationService, CulturalCategory, SacredLevel, EventContext
+    CulturalPhilosophy, DesignElement, EventApplication, 
+    CulturalValidationResult, FusionCompatibility
 )
 
 logger = logging.getLogger(__name__)
 
 class CulturalService:
+    """Service for cultural database operations and AI integration"""
+    
     def __init__(self):
-        self.db = get_database()
-        self.categorization_service = CulturalCategorizationService()
+        self.db = None
+        self.cultural_db = None
     
-    async def get_cultural_elements(
-        self, 
-        culture: Optional[str] = None,
-        category: Optional[str] = None,
-        verified_only: bool = False
-    ) -> List[CulturalElement]:
-        """Get cultural elements with optional filtering."""
-        try:
-            query = {}
-            
-            if culture:
-                query["culture"] = {"$regex": culture, "$options": "i"}
-            
-            if category:
-                query["category"] = category
-                
-            if verified_only:
-                query["is_verified"] = True
-            
-            cursor = self.db.cultural_elements.find(query)
-            elements = []
-            
-            async for doc in cursor:
-                element = CulturalElement(
-                    id=str(doc["_id"]),
-                    **{k: v for k, v in doc.items() if k != "_id"}
-                )
-                elements.append(element)
-            
-            return elements
-            
-        except Exception as e:
-            logger.error(f"Error fetching cultural elements: {e}")
-            return []
+    async def initialize(self):
+        """Initialize database connections"""
+        self.db = await get_database()
+        # Connect to cultural database
+        client = self.db.client
+        self.cultural_db = client['designvisualz_cultural']
+        logger.info("Cultural service initialized")
     
-    async def get_cultural_element_by_id(self, element_id: str) -> Optional[CulturalElement]:
-        """Get a specific cultural element by ID."""
-        try:
-            doc = await self.db.cultural_elements.find_one({"_id": ObjectId(element_id)})
-            if doc:
-                return CulturalElement(
-                    id=str(doc["_id"]),
-                    **{k: v for k, v in doc.items() if k != "_id"}
-                )
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error fetching cultural element {element_id}: {e}")
-            return None
-    
-    async def create_cultural_element(
-        self, 
-        element_data: CulturalElementCreate, 
-        created_by: Optional[str] = None
-    ) -> CulturalElement:
-        """Create a new cultural element."""
-        try:
-            element_doc = CulturalElementInDB(
-                **element_data.dict(),
-                created_by=ObjectId(created_by) if created_by else None
-            )
-            
-            result = await self.db.cultural_elements.insert_one(
-                element_doc.dict(by_alias=True, exclude={"id"})
-            )
-            
-            return CulturalElement(
-                id=str(result.inserted_id),
-                **element_data.dict(),
-                created_at=element_doc.created_at,
-                updated_at=element_doc.updated_at,
-                created_by=created_by
-            )
-            
-        except Exception as e:
-            logger.error(f"Error creating cultural element: {e}")
-            raise Exception(f"Failed to create cultural element: {str(e)}")
-    
-    async def validate_cultural_appropriateness(
-        self, 
-        request: CulturalValidationRequest
-    ) -> CulturalValidationResult:
-        """Validate design elements for cultural appropriateness."""
-        try:
-            # Get relevant cultural elements from database
-            elements = await self.get_cultural_elements(
-                culture=request.primary_culture,
-                verified_only=True
-            )
-            
-            # Add secondary cultures
-            for culture in request.secondary_cultures:
-                secondary_elements = await self.get_cultural_elements(
-                    culture=culture,
-                    verified_only=True
-                )
-                elements.extend(secondary_elements)
-            
-            # Perform validation logic
-            validation_result = await self._perform_validation(request, elements)
-            
-            return validation_result
-            
-        except Exception as e:
-            logger.error(f"Error validating cultural appropriateness: {e}")
-            return CulturalValidationResult(
-                sensitivity_score=5,
-                overall_status="needs_review",
-                recommendations=["Manual cultural expert review required due to validation error"],
-                disclaimer_text="This design has not been validated for cultural appropriateness. Please consult with cultural experts before implementation."
-            )
-    
-    async def _perform_validation(
-        self, 
-        request: CulturalValidationRequest, 
-        cultural_elements: List[CulturalElement]
-    ) -> CulturalValidationResult:
-        """Perform the actual validation logic."""
-        validated_elements = []
-        flagged_elements = []
-        recommendations = []
-        consultation_required = []
-        sensitivity_score = 10  # Start with perfect score
+    async def get_philosophy(self, philosophy_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific design philosophy"""
+        if not self.cultural_db:
+            await self.initialize()
         
-        # Check each design element against cultural database
-        for design_element in request.design_elements:
-            element_status = await self._validate_single_element(
-                design_element, 
-                request, 
-                cultural_elements
-            )
-            
-            if element_status["status"] == "approved":
-                validated_elements.append(element_status)
-            elif element_status["status"] == "flagged":
-                flagged_elements.append(element_status)
-                sensitivity_score -= element_status.get("severity_impact", 1)
-            elif element_status["status"] == "consultation_required":
-                consultation_required.append(design_element)
-                sensitivity_score -= 2
-        
-        # Check for cultural fusion conflicts
-        if len(request.secondary_cultures) > 0:
-            fusion_analysis = await self._analyze_cultural_fusion(
-                request.primary_culture,
-                request.secondary_cultures,
-                cultural_elements
-            )
-            recommendations.extend(fusion_analysis["recommendations"])
-            sensitivity_score -= fusion_analysis.get("conflict_penalty", 0)
-        
-        # Determine overall status
-        sensitivity_score = max(1, min(10, sensitivity_score))
-        
-        if sensitivity_score >= 8 and len(flagged_elements) == 0:
-            overall_status = "approved"
-        elif sensitivity_score >= 6:
-            overall_status = "needs_review"
-        else:
-            overall_status = "rejected"
-        
-        # Generate disclaimer text
-        disclaimer_text = self._generate_disclaimer(
-            request.primary_culture,
-            overall_status,
-            len(flagged_elements) > 0
+        philosophy = await self.cultural_db.philosophies.find_one(
+            {"philosophyId": philosophy_id}
         )
-        
-        return CulturalValidationResult(
-            sensitivity_score=sensitivity_score,
-            overall_status=overall_status,
-            validated_elements=validated_elements,
-            flagged_elements=flagged_elements,
-            recommendations=recommendations,
-            consultation_required=consultation_required,
-            disclaimer_text=disclaimer_text
-        )
+        return philosophy
     
-    async def _validate_single_element(
+    async def get_all_philosophies(self) -> List[Dict[str, Any]]:
+        """Get all available design philosophies"""
+        if not self.cultural_db:
+            await self.initialize()
+        
+        cursor = self.cultural_db.philosophies.find({})
+        philosophies = await cursor.to_list(length=None)
+        return philosophies
+    
+    async def get_design_elements(
         self, 
-        design_element: str, 
-        request: CulturalValidationRequest,
-        cultural_elements: List[CulturalElement]
-    ) -> Dict[str, Any]:
-        """Validate a single design element."""
-        # Find matching cultural elements
-        matching_elements = [
-            elem for elem in cultural_elements 
-            if design_element.lower() in elem.name.lower() or
-               design_element.lower() in [tag.lower() for tag in elem.patterns + elem.materials]
-        ]
-        
-        if not matching_elements:
-            return {
-                "element": design_element,
-                "status": "approved",
-                "note": "No specific cultural restrictions found"
-            }
-        
-        # Check most restrictive element
-        most_restrictive = max(
-            matching_elements,
-            key=lambda x: {"low": 1, "medium": 2, "high": 3, "sacred": 4}[x.sacred_level]
-        )
-        
-        # Check context appropriateness
-        if request.event_type.lower() in [ctx.lower() for ctx in most_restrictive.inappropriate_contexts]:
-            return {
-                "element": design_element,
-                "status": "flagged",
-                "reason": f"Inappropriate for {request.event_type} events",
-                "cultural_element": most_restrictive.name,
-                "severity_impact": 3,
-                "recommendations": most_restrictive.usage_guidelines
-            }
-        
-        # Check if community permission required
-        if most_restrictive.community_permission_required:
-            return {
-                "element": design_element,
-                "status": "consultation_required",
-                "reason": "Requires community elder consultation",
-                "cultural_element": most_restrictive.name
-            }
-        
-        # Check sacred level
-        if most_restrictive.sacred_level in ["high", "sacred"]:
-            return {
-                "element": design_element,
-                "status": "flagged",
-                "reason": f"High sacred significance ({most_restrictive.sacred_level} level)",
-                "cultural_element": most_restrictive.name,
-                "severity_impact": 2,
-                "recommendations": ["Consider alternative elements", "Consult cultural expert"]
-            }
-        
-        return {
-            "element": design_element,
-            "status": "approved",
-            "cultural_element": most_restrictive.name,
-            "usage_guidelines": most_restrictive.usage_guidelines
-        }
-    
-    async def _analyze_cultural_fusion(
-        self, 
-        primary_culture: str, 
-        secondary_cultures: List[str],
-        cultural_elements: List[CulturalElement]
-    ) -> Dict[str, Any]:
-        """Analyze potential conflicts in cultural fusion."""
-        recommendations = []
-        conflict_penalty = 0
-        
-        # Check for known problematic combinations
-        problematic_pairs = [
-            ("sacred", "decorative"),
-            ("funeral", "celebration"),
-            ("religious", "secular")
-        ]
-        
-        # This is a simplified fusion analysis
-        # In production, this would use the CulturalFusionRule model
-        for secondary in secondary_cultures:
-            recommendations.append(
-                f"When combining {primary_culture} and {secondary} elements, "
-                f"ensure respectful representation of both cultures"
-            )
-        
-        if len(secondary_cultures) > 2:
-            recommendations.append(
-                "Consider limiting to 2-3 cultural influences to maintain authenticity"
-            )
-            conflict_penalty += 1
-        
-        return {
-            "recommendations": recommendations,
-            "conflict_penalty": conflict_penalty
-        }
-    
-    def _generate_disclaimer(
-        self, 
-        primary_culture: str, 
-        status: str, 
-        has_flagged_elements: bool
-    ) -> str:
-        """Generate appropriate disclaimer text."""
-        base_disclaimer = (
-            f"CULTURAL SENSITIVITY NOTICE: This design incorporates elements from {primary_culture} culture. "
-            f"This is a preliminary assessment based on general cultural knowledge. "
-        )
-        
-        if status == "approved" and not has_flagged_elements:
-            return base_disclaimer + (
-                "No immediate cultural concerns identified, but we recommend consulting with "
-                "cultural experts and community members for final validation before implementation."
-            )
-        elif status == "needs_review":
-            return base_disclaimer + (
-                "Some elements require additional review. Please consult with cultural experts "
-                "and consider alternative approaches for flagged elements."
-            )
-        else:  # rejected
-            return base_disclaimer + (
-                "This design contains elements that may be culturally inappropriate. "
-                "Significant modifications and expert consultation are required before implementation."
-            )
-    
-    async def get_cultural_guidelines(self, culture: str) -> List[CulturalGuideline]:
-        """Get cultural guidelines for a specific culture."""
-        try:
-            cursor = self.db.cultural_guidelines.find({"culture": culture})
-            guidelines = []
-            
-            async for doc in cursor:
-                guideline = CulturalGuideline(**doc)
-                guidelines.append(guideline)
-            
-            return guidelines
-            
-        except Exception as e:
-            logger.error(f"Error fetching cultural guidelines for {culture}: {e}")
-            return []
-    
-    async def suggest_cultural_alternatives(
-        self, 
-        flagged_element: str, 
-        target_culture: str,
-        category: str
+        philosophy_id: str, 
+        element_type: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Suggest culturally appropriate alternatives for flagged elements."""
-        try:
-            # Find appropriate elements in the same category
-            appropriate_elements = await self.get_cultural_elements(
-                culture=target_culture,
-                category=category,
-                verified_only=True
+        """Get design elements for a philosophy"""
+        if not self.cultural_db:
+            await self.initialize()
+        
+        query = {"philosophyId": philosophy_id}
+        if element_type:
+            query["elementType"] = element_type
+        
+        cursor = self.cultural_db.design_elements.find(query)
+        elements = await cursor.to_list(length=None)
+        return elements
+    
+    async def validate_cultural_sensitivity(
+        self, 
+        philosophy_id: str, 
+        event_type: str, 
+        elements: List[str],
+        guest_count: int = 0
+    ) -> Dict[str, Any]:
+        """Validate cultural sensitivity of design choices"""
+        if not self.cultural_db:
+            await self.initialize()
+        
+        # Get philosophy
+        philosophy = await self.get_philosophy(philosophy_id)
+        if not philosophy:
+            return {
+                "valid": False,
+                "errors": ["Philosophy not found"],
+                "warnings": [],
+                "consultationRequired": False
+            }
+        
+        sensitivity = philosophy.get("culturalSensitivity", {})
+        validation_result = {
+            "valid": True,
+            "errors": [],
+            "warnings": [],
+            "consultationRequired": sensitivity.get("consultationRequired", False),
+            "sensitivityLevel": sensitivity.get("level", "medium")
+        }
+        
+        # Check for sacred elements
+        sacred_elements = sensitivity.get("sacredElements", [])
+        for element in elements:
+            if any(sacred in element.lower() for sacred in sacred_elements):
+                validation_result["consultationRequired"] = True
+                validation_result["warnings"].append(
+                    f"Element '{element}' may contain sacred cultural significance"
+                )
+        
+        # Check validation rules
+        validation_rules = await self.cultural_db.validation_rules.find({
+            "philosophyId": philosophy_id
+        }).to_list(length=None)
+        
+        for rule in validation_rules:
+            trigger_conditions = rule.get("triggerConditions", {})
+            
+            # Check guest count threshold
+            if "guestCount" in trigger_conditions:
+                threshold = trigger_conditions["guestCount"].get("$gt", 0)
+                if guest_count > threshold:
+                    validation_result["consultationRequired"] = True
+                    validation_result["warnings"].append(rule.get("message", ""))
+        
+        return validation_result
+    
+    async def get_cultural_recommendations(
+        self, 
+        philosophy_id: str, 
+        event_type: str,
+        budget_range: str,
+        guest_count: int,
+        season: str = "spring"
+    ) -> Dict[str, Any]:
+        """Get AI-powered cultural recommendations"""
+        if not self.cultural_db:
+            await self.initialize()
+        
+        # Get philosophy and elements
+        philosophy = await self.get_philosophy(philosophy_id)
+        design_elements = await self.get_design_elements(philosophy_id)
+        event_apps = await self.cultural_db.event_applications.find({
+            "philosophyId": philosophy_id
+        }).to_list(length=None)
+        
+        if not philosophy:
+            return {"error": "Philosophy not found"}
+        
+        recommendations = {
+            "philosophy": {
+                "name": philosophy.get("name", {}),
+                "coreValues": philosophy.get("coreValues", []),
+                "description": philosophy.get("description", "")
+            },
+            "colorPalette": [],
+            "materials": [],
+            "spatialGuidance": {},
+            "culturalProtocols": [],
+            "budgetGuidance": {},
+            "seasonalConsiderations": {},
+            "warnings": []
+        }
+        
+        # Extract color recommendations
+        for element in design_elements:
+            if element.get("elementType") == "colorPalette":
+                colors = element.get("colors", [])
+                for color in colors:
+                    if season in color.get("seasonality", []) or "all" in color.get("seasonality", []):
+                        recommendations["colorPalette"].append({
+                            "name": color.get("name"),
+                            "hex": color.get("hex"),
+                            "meaning": color.get("culturalMeaning"),
+                            "usage": color.get("usage", [])
+                        })
+        
+        # Extract material recommendations
+        for element in design_elements:
+            if element.get("elementType") == "materials":
+                materials = element.get("materials", [])
+                for material in materials:
+                    recommendations["materials"].append({
+                        "name": material.get("name"),
+                        "properties": material.get("properties", {}),
+                        "significance": material.get("culturalSignificance", ""),
+                        "sustainability": material.get("properties", {}).get("sustainabilityRating", 0)
+                    })
+        
+        # Extract spatial and protocol guidance from event applications
+        for app in event_apps:
+            if app.get("eventType") == event_type or event_type in app.get("appropriateFor", []):
+                recommendations["spatialGuidance"] = app.get("spatialRequirements", {})
+                recommendations["culturalProtocols"] = app.get("culturalProtocols", [])
+                recommendations["budgetGuidance"] = app.get("budget", {})
+                
+                # Check seasonal considerations
+                seasonal_data = app.get("seasonalConsiderations", {})
+                if season in seasonal_data:
+                    recommendations["seasonalConsiderations"] = seasonal_data[season]
+        
+        # Add cultural sensitivity warnings
+        sensitivity = philosophy.get("culturalSensitivity", {})
+        if sensitivity.get("level") in ["high", "highest"]:
+            recommendations["warnings"].extend(
+                sensitivity.get("appropriationConcerns", [])
             )
-            
-            # Filter for low/medium sacred level
-            safe_elements = [
-                elem for elem in appropriate_elements
-                if elem.sacred_level in ["low", "medium"] and
-                not elem.community_permission_required
-            ]
-            
-            alternatives = []
-            for elem in safe_elements[:5]:  # Limit to top 5 suggestions
-                alternatives.append({
-                    "name": elem.name,
-                    "description": elem.description,
-                    "usage_guidelines": elem.usage_guidelines,
-                    "colors": elem.colors,
-                    "materials": elem.materials
-                })
-            
-            return alternatives
-            
-        except Exception as e:
-            logger.error(f"Error suggesting alternatives: {e}")
-            return []
+        
+        return recommendations
+    
+    async def check_fusion_compatibility(
+        self, 
+        primary_philosophy: str, 
+        secondary_philosophy: str
+    ) -> Dict[str, Any]:
+        """Check compatibility between two cultural philosophies for fusion events"""
+        if not self.cultural_db:
+            await self.initialize()
+        
+        # Check direct compatibility
+        compatibility = await self.cultural_db.fusion_compatibility.find_one({
+            "primaryPhilosophy": primary_philosophy,
+            "secondaryPhilosophy": secondary_philosophy
+        })
+        
+        # Check reverse compatibility if not found
+        if not compatibility:
+            compatibility = await self.cultural_db.fusion_compatibility.find_one({
+                "primaryPhilosophy": secondary_philosophy,
+                "secondaryPhilosophy": primary_philosophy
+            })
+        
+        if not compatibility:
+            return {
+                "compatible": False,
+                "level": "unknown",
+                "reason": "No compatibility data available",
+                "consultationRequired": True,
+                "warnings": ["Unknown compatibility - expert consultation recommended"]
+            }
+        
+        return {
+            "compatible": compatibility.get("compatibilityLevel") in ["high", "medium"],
+            "level": compatibility.get("compatibilityLevel"),
+            "reason": compatibility.get("reason"),
+            "bridgeElements": compatibility.get("bridgeElements", []),
+            "consultationRequired": compatibility.get("consultationRequired", True),
+            "warnings": compatibility.get("warnings", []),
+            "successfulExamples": compatibility.get("successfulExamples", [])
+        }
+    
+    async def get_cultural_vendors(
+        self, 
+        philosophy_id: str, 
+        location: Optional[Dict[str, float]] = None,
+        max_distance_km: float = 100.0
+    ) -> List[Dict[str, Any]]:
+        """Get verified vendors for a cultural philosophy"""
+        if not self.cultural_db:
+            await self.initialize()
+        
+        query = {"philosophies": philosophy_id}
+        
+        # Add geospatial query if location provided
+        if location:
+            query["location"] = {
+                "$near": {
+                    "$geometry": {
+                        "type": "Point",
+                        "coordinates": [location["longitude"], location["latitude"]]
+                    },
+                    "$maxDistance": max_distance_km * 1000  # Convert to meters
+                }
+            }
+        
+        cursor = self.cultural_db.vendors.find(query)
+        vendors = await cursor.to_list(length=None)
+        
+        # Sort by verification level
+        verification_order = {
+            "certified-authentic": 1,
+            "expert-verified": 2,
+            "community-approved": 3,
+            "pending-review": 4
+        }
+        
+        vendors.sort(key=lambda x: verification_order.get(x.get("verificationLevel"), 5))
+        return vendors
+    
+    async def get_cultural_expert(self, philosophy_id: str) -> Optional[Dict[str, Any]]:
+        """Get cultural expert for consultation"""
+        if not self.cultural_db:
+            await self.initialize()
+        
+        expert = await self.cultural_db.cultural_experts.find_one({
+            "expertise": {"$in": [philosophy_id]}
+        })
+        return expert
+    
+    async def log_cultural_usage(
+        self,
+        philosophy_id: str,
+        event_type: str,
+        elements_used: List[str],
+        user_id: Optional[str] = None,
+        success: bool = True
+    ):
+        """Log cultural usage for monitoring and improvement"""
+        if not self.cultural_db:
+            await self.initialize()
+        
+        usage_log = {
+            "timestamp": datetime.now(),
+            "philosophyId": philosophy_id,
+            "eventType": event_type,
+            "elementsUsed": elements_used,
+            "userId": user_id,
+            "success": success,
+            "source": "ai-event-visualization"
+        }
+        
+        await self.cultural_db.usage_logs.insert_one(usage_log)
+    
+    async def get_seasonal_recommendations(
+        self, 
+        philosophy_id: str, 
+        current_season: str
+    ) -> Dict[str, Any]:
+        """Get season-specific cultural recommendations"""
+        if not self.cultural_db:
+            await self.initialize()
+        
+        # Get elements with seasonal considerations
+        elements = await self.get_design_elements(philosophy_id)
+        seasonal_recs = {
+            "colors": [],
+            "materials": [],
+            "activities": [],
+            "cultural_significance": {}
+        }
+        
+        for element in elements:
+            if element.get("elementType") == "colorPalette":
+                colors = element.get("colors", [])
+                for color in colors:
+                    seasonality = color.get("seasonality", [])
+                    if current_season in seasonality or "all" in seasonality:
+                        seasonal_recs["colors"].append({
+                            "name": color.get("name"),
+                            "hex": color.get("hex"),
+                            "meaning": color.get("culturalMeaning")
+                        })
+        
+        # Get seasonal event applications
+        event_apps = await self.cultural_db.event_applications.find({
+            "philosophyId": philosophy_id
+        }).to_list(length=None)
+        
+        for app in event_apps:
+            seasonal_considerations = app.get("seasonalConsiderations", {})
+            if current_season in seasonal_considerations:
+                seasonal_data = seasonal_considerations[current_season]
+                seasonal_recs["cultural_significance"] = seasonal_data
+        
+        return seasonal_recs
+
+# Global service instance
+cultural_service = CulturalService()

@@ -1,434 +1,480 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from typing import List, Optional
+"""
+Cultural API Endpoints
+Provides RESTful access to cultural database and validation services
+"""
+
+from fastapi import APIRouter, HTTPException, Depends, Query
+from typing import Dict, List, Optional, Any
+from pydantic import BaseModel, Field
+from datetime import datetime
 import logging
-from app.models.cultural import (
-    CulturalElement, CulturalElementCreate, CulturalElementUpdate,
-    CulturalValidationRequest, CulturalValidationResult
-)
-from app.services.cultural_categorization import CulturalCategory, SacredLevel, EventContext
+
+from app.services.cultural_service import cultural_service
+from app.api.auth import get_current_user_optional
 from app.models.user import User
-from app.api.auth import get_current_user
-from app.services.cultural_service import CulturalService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-@router.get("/elements", response_model=List[CulturalElement])
-async def get_cultural_elements(
-    culture: Optional[str] = Query(None, description="Filter by culture"),
-    category: Optional[str] = Query(None, description="Filter by category"),
-    verified_only: bool = Query(False, description="Only return verified elements"),
-    current_user: User = Depends(get_current_user)
-):
-    """Get cultural elements with optional filtering."""
-    cultural_service = CulturalService()
-    
-    try:
-        elements = await cultural_service.get_cultural_elements(
-            culture=culture,
-            category=category,
-            verified_only=verified_only
-        )
-        
-        logger.info(f"Retrieved {len(elements)} cultural elements for user {current_user.id}")
-        return elements
-        
-    except Exception as e:
-        logger.error(f"Error retrieving cultural elements: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve cultural elements"
-        )
+# Request/Response Models
+class CulturalValidationRequest(BaseModel):
+    philosophyId: str
+    eventType: str
+    elements: List[str]
+    guestCount: int = Field(default=0, ge=0)
 
-@router.get("/elements/{element_id}", response_model=CulturalElement)
-async def get_cultural_element(
-    element_id: str,
-    current_user: User = Depends(get_current_user)
-):
-    """Get a specific cultural element by ID."""
-    cultural_service = CulturalService()
-    
+class CulturalRecommendationRequest(BaseModel):
+    philosophyId: str
+    eventType: str
+    budgetRange: str
+    guestCount: int
+    season: str = "spring"
+
+class FusionCompatibilityRequest(BaseModel):
+    primaryPhilosophy: str
+    secondaryPhilosophy: str
+
+class VendorSearchRequest(BaseModel):
+    philosophyId: str
+    location: Optional[Dict[str, float]] = None
+    maxDistanceKm: float = 100.0
+
+@router.get("/philosophies", summary="Get all cultural design philosophies")
+async def get_philosophies(
+    current_user: Optional[User] = Depends(get_current_user_optional)
+) -> Dict[str, Any]:
+    """
+    Retrieve all available cultural design philosophies
+    """
     try:
-        element = await cultural_service.get_cultural_element_by_id(element_id)
+        philosophies = await cultural_service.get_all_philosophies()
         
-        if not element:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Cultural element not found"
-            )
+        # Convert ObjectIds to strings for JSON serialization
+        for philosophy in philosophies:
+            philosophy["_id"] = str(philosophy["_id"])
         
-        return element
+        return {
+            "success": True,
+            "philosophies": philosophies,
+            "count": len(philosophies)
+        }
+    except Exception as e:
+        logger.error(f"Error fetching philosophies: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/philosophies/{philosophy_id}", summary="Get specific philosophy details")
+async def get_philosophy(
+    philosophy_id: str,
+    current_user: Optional[User] = Depends(get_current_user_optional)
+) -> Dict[str, Any]:
+    """
+    Get detailed information about a specific cultural philosophy
+    """
+    try:
+        philosophy = await cultural_service.get_philosophy(philosophy_id)
         
+        if not philosophy:
+            raise HTTPException(status_code=404, detail="Philosophy not found")
+        
+        # Convert ObjectId to string
+        philosophy["_id"] = str(philosophy["_id"])
+        
+        return {
+            "success": True,
+            "philosophy": philosophy
+        }
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error retrieving cultural element {element_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve cultural element"
-        )
+        logger.error(f"Error fetching philosophy {philosophy_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/elements", response_model=CulturalElement)
-async def create_cultural_element(
-    element_data: CulturalElementCreate,
-    current_user: User = Depends(get_current_user)
-):
-    """Create a new cultural element."""
-    cultural_service = CulturalService()
-    
+@router.get("/philosophies/{philosophy_id}/elements", summary="Get design elements for philosophy")
+async def get_design_elements(
+    philosophy_id: str,
+    element_type: Optional[str] = Query(None, description="Filter by element type"),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+) -> Dict[str, Any]:
+    """
+    Get design elements (colors, materials, patterns) for a specific philosophy
+    """
     try:
-        element = await cultural_service.create_cultural_element(
-            element_data=element_data,
-            created_by=current_user.id
-        )
+        elements = await cultural_service.get_design_elements(philosophy_id, element_type)
         
-        logger.info(f"Created cultural element {element.id} by user {current_user.id}")
-        return element
+        # Convert ObjectIds to strings
+        for element in elements:
+            element["_id"] = str(element["_id"])
         
+        return {
+            "success": True,
+            "elements": elements,
+            "count": len(elements),
+            "philosophyId": philosophy_id,
+            "elementType": element_type
+        }
     except Exception as e:
-        logger.error(f"Error creating cultural element: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create cultural element: {str(e)}"
-        )
+        logger.error(f"Error fetching design elements: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/elements/{element_id}", response_model=CulturalElement)
-async def update_cultural_element(
-    element_id: str,
-    updates: CulturalElementUpdate,
-    current_user: User = Depends(get_current_user)
-):
-    """Update a cultural element."""
-    cultural_service = CulturalService()
-    
+@router.post("/validate", summary="Validate cultural sensitivity")
+async def validate_cultural_sensitivity(
+    request: CulturalValidationRequest,
+    current_user: Optional[User] = Depends(get_current_user_optional)
+) -> Dict[str, Any]:
+    """
+    Validate design choices for cultural sensitivity and appropriateness
+    """
     try:
-        # First check if element exists
-        existing_element = await cultural_service.get_cultural_element_by_id(element_id)
-        if not existing_element:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Cultural element not found"
-            )
+        validation_result = await cultural_service.validate_cultural_sensitivity(
+            philosophy_id=request.philosophyId,
+            event_type=request.eventType,
+            elements=request.elements,
+            guest_count=request.guestCount
+        )
         
-        # For now, we'll return the existing element
-        # TODO: Implement actual update logic in cultural_service
-        logger.info(f"Cultural element {element_id} update requested by user {current_user.id}")
-        return existing_element
+        # Log validation for monitoring
+        await cultural_service.log_cultural_usage(
+            philosophy_id=request.philosophyId,
+            event_type=request.eventType,
+            elements_used=request.elements,
+            user_id=current_user.id if current_user else None,
+            success=validation_result.get("valid", False)
+        )
         
+        return {
+            "success": True,
+            "validation": validation_result
+        }
+    except Exception as e:
+        logger.error(f"Error validating cultural sensitivity: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/recommendations", summary="Get cultural design recommendations")
+async def get_cultural_recommendations(
+    request: CulturalRecommendationRequest,
+    current_user: Optional[User] = Depends(get_current_user_optional)
+) -> Dict[str, Any]:
+    """
+    Get AI-powered cultural design recommendations for events
+    """
+    try:
+        recommendations = await cultural_service.get_cultural_recommendations(
+            philosophy_id=request.philosophyId,
+            event_type=request.eventType,
+            budget_range=request.budgetRange,
+            guest_count=request.guestCount,
+            season=request.season
+        )
+        
+        # Log recommendation request
+        await cultural_service.log_cultural_usage(
+            philosophy_id=request.philosophyId,
+            event_type=request.eventType,
+            elements_used=["recommendations_requested"],
+            user_id=current_user.id if current_user else None,
+            success=True
+        )
+        
+        return {
+            "success": True,
+            "recommendations": recommendations,
+            "generatedAt": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error generating recommendations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/fusion/compatibility", summary="Check fusion compatibility")
+async def check_fusion_compatibility(
+    request: FusionCompatibilityRequest,
+    current_user: Optional[User] = Depends(get_current_user_optional)
+) -> Dict[str, Any]:
+    """
+    Check compatibility between two cultural philosophies for fusion events
+    """
+    try:
+        compatibility = await cultural_service.check_fusion_compatibility(
+            primary_philosophy=request.primaryPhilosophy,
+            secondary_philosophy=request.secondaryPhilosophy
+        )
+        
+        return {
+            "success": True,
+            "compatibility": compatibility,
+            "primaryPhilosophy": request.primaryPhilosophy,
+            "secondaryPhilosophy": request.secondaryPhilosophy
+        }
+    except Exception as e:
+        logger.error(f"Error checking fusion compatibility: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/vendors", summary="Find cultural vendors")
+async def get_cultural_vendors(
+    request: VendorSearchRequest,
+    current_user: Optional[User] = Depends(get_current_user_optional)
+) -> Dict[str, Any]:
+    """
+    Find verified vendors for cultural design elements
+    """
+    try:
+        vendors = await cultural_service.get_cultural_vendors(
+            philosophy_id=request.philosophyId,
+            location=request.location,
+            max_distance_km=request.maxDistanceKm
+        )
+        
+        # Convert ObjectIds to strings
+        for vendor in vendors:
+            vendor["_id"] = str(vendor["_id"])
+        
+        return {
+            "success": True,
+            "vendors": vendors,
+            "count": len(vendors),
+            "philosophyId": request.philosophyId
+        }
+    except Exception as e:
+        logger.error(f"Error fetching vendors: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/experts/{philosophy_id}", summary="Get cultural expert")
+async def get_cultural_expert(
+    philosophy_id: str,
+    current_user: Optional[User] = Depends(get_current_user_optional)
+) -> Dict[str, Any]:
+    """
+    Get cultural expert contact information for consultation
+    """
+    try:
+        expert = await cultural_service.get_cultural_expert(philosophy_id)
+        
+        if not expert:
+            return {
+                "success": True,
+                "expert": None,
+                "message": "No expert found for this philosophy"
+            }
+        
+        # Convert ObjectId to string
+        expert["_id"] = str(expert["_id"])
+        
+        # Remove sensitive contact info for non-authenticated users
+        if not current_user:
+            expert.pop("contactInfo", None)
+            expert["contactAvailable"] = True
+            expert["authenticationRequired"] = True
+        
+        return {
+            "success": True,
+            "expert": expert
+        }
+    except Exception as e:
+        logger.error(f"Error fetching expert: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/seasonal/{philosophy_id}", summary="Get seasonal recommendations")
+async def get_seasonal_recommendations(
+    philosophy_id: str,
+    season: str = Query("spring", description="Season (spring, summer, autumn, winter)"),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+) -> Dict[str, Any]:
+    """
+    Get season-specific cultural design recommendations
+    """
+    try:
+        if season not in ["spring", "summer", "autumn", "winter"]:
+            raise HTTPException(status_code=400, detail="Invalid season")
+        
+        seasonal_recs = await cultural_service.get_seasonal_recommendations(
+            philosophy_id=philosophy_id,
+            current_season=season
+        )
+        
+        return {
+            "success": True,
+            "recommendations": seasonal_recs,
+            "philosophyId": philosophy_id,
+            "season": season
+        }
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating cultural element {element_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update cultural element"
-        )
+        logger.error(f"Error fetching seasonal recommendations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/validate", response_model=CulturalValidationResult)
-async def validate_cultural_appropriateness(
-    validation_request: CulturalValidationRequest,
-    current_user: User = Depends(get_current_user)
-):
-    """Validate design elements for cultural appropriateness."""
-    cultural_service = CulturalService()
-    
+@router.get("/health", summary="Cultural service health check")
+async def health_check() -> Dict[str, Any]:
+    """
+    Check the health of the cultural service and database
+    """
     try:
-        result = await cultural_service.validate_cultural_appropriateness(validation_request)
-        
-        logger.info(
-            f"Cultural validation completed for user {current_user.id}: "
-            f"score {result.sensitivity_score}, status {result.overall_status}"
-        )
-        
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error validating cultural appropriateness: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to validate cultural appropriateness"
-        )
-
-@router.get("/cultures")
-async def get_available_cultures(
-    current_user: User = Depends(get_current_user)
-):
-    """Get list of available cultures in the database."""
-    cultural_service = CulturalService()
-    
-    try:
-        # Get all cultural elements and extract unique cultures
-        all_elements = await cultural_service.get_cultural_elements()
-        cultures = list(set(element.culture for element in all_elements))
-        cultures.sort()
-        
-        return {"cultures": cultures}
-        
-    except Exception as e:
-        logger.error(f"Error retrieving available cultures: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve available cultures"
-        )
-
-@router.get("/categories")
-async def get_available_categories(
-    current_user: User = Depends(get_current_user)
-):
-    """Get list of available categories in the database."""
-    cultural_service = CulturalService()
-    
-    try:
-        # Get all cultural elements and extract unique categories
-        all_elements = await cultural_service.get_cultural_elements()
-        categories = list(set(element.category for element in all_elements))
-        categories.sort()
-        
-        return {"categories": categories}
-        
-    except Exception as e:
-        logger.error(f"Error retrieving available categories: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve available categories"
-        )
-
-@router.get("/cultures/{culture}/guidelines")
-async def get_cultural_guidelines(
-    culture: str,
-    current_user: User = Depends(get_current_user)
-):
-    """Get cultural guidelines for a specific culture."""
-    cultural_service = CulturalService()
-    
-    try:
-        guidelines = await cultural_service.get_cultural_guidelines(culture)
+        # Test database connection
+        philosophies = await cultural_service.get_all_philosophies()
         
         return {
-            "culture": culture,
-            "guidelines": guidelines,
-            "disclaimer": (
-                "These guidelines are based on general cultural knowledge and should be "
-                "validated with cultural experts and community members before implementation."
-            )
+            "success": True,
+            "status": "healthy",
+            "database": "connected",
+            "philosophyCount": len(philosophies),
+            "timestamp": datetime.now().isoformat()
         }
-        
     except Exception as e:
-        logger.error(f"Error retrieving cultural guidelines for {culture}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve cultural guidelines"
-        )
-
-@router.get("/alternatives")
-async def suggest_cultural_alternatives(
-    flagged_element: str = Query(..., description="Element that was flagged"),
-    target_culture: str = Query(..., description="Target culture for alternatives"),
-    category: str = Query(..., description="Element category"),
-    current_user: User = Depends(get_current_user)
-):
-    """Suggest culturally appropriate alternatives for flagged elements."""
-    cultural_service = CulturalService()
-    
-    try:
-        alternatives = await cultural_service.suggest_cultural_alternatives(
-            flagged_element=flagged_element,
-            target_culture=target_culture,
-            category=category
-        )
-        
+        logger.error(f"Cultural service health check failed: {e}")
         return {
-            "flagged_element": flagged_element,
-            "target_culture": target_culture,
-            "alternatives": alternatives,
-            "disclaimer": (
-                "Alternative suggestions are based on database entries and should be "
-                "reviewed by cultural experts before implementation."
-            )
+            "success": False,
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
         }
-        
-    except Exception as e:
-        logger.error(f"Error suggesting cultural alternatives: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to suggest cultural alternatives"
-        )
 
-@router.get("/stats")
-async def get_cultural_database_stats(
-    current_user: User = Depends(get_current_user)
-):
-    """Get statistics about the cultural database."""
-    cultural_service = CulturalService()
-    
-    try:
-        all_elements = await cultural_service.get_cultural_elements()
-        verified_elements = await cultural_service.get_cultural_elements(verified_only=True)
-        
-        cultures = set(element.culture for element in all_elements)
-        categories = set(element.category for element in all_elements)
-        
-        sacred_levels = {}
-        for element in all_elements:
-            level = element.sacred_level
-            sacred_levels[level] = sacred_levels.get(level, 0) + 1
-        
-        return {
-            "total_elements": len(all_elements),
-            "verified_elements": len(verified_elements),
-            "total_cultures": len(cultures),
-            "total_categories": len(categories),
-            "verification_rate": f"{(len(verified_elements) / len(all_elements) * 100):.1f}%" if all_elements else "0%",
-            "sacred_level_distribution": sacred_levels,
-            "cultures": sorted(list(cultures)),
-            "categories": sorted(list(categories)),
-            "disclaimer": (
-                "This database is for demonstration purposes and contains preliminary data. "
-                "All entries require validation by cultural experts before production use."
-            )
-        }
-        
-    except Exception as e:
-        logger.error(f"Error retrieving cultural database stats: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve database statistics"
-        )
+# AI Integration Endpoints
 
-@router.post("/categorize")
-async def categorize_cultural_element(
-    element_name: str = Query(..., description="Name of the cultural element"),
-    culture: str = Query(..., description="Culture of origin"),
-    description: str = Query(..., description="Element description"),
-    current_user: User = Depends(get_current_user)
-):
-    """Automatically categorize a cultural element."""
-    cultural_service = CulturalService()
-    
+@router.post("/ai/cultural-analysis", summary="AI cultural analysis for parametric generation")
+async def ai_cultural_analysis(
+    analysis_request: Dict[str, Any],
+    current_user: Optional[User] = Depends(get_current_user_optional)
+) -> Dict[str, Any]:
+    """
+    Provide cultural analysis for AI parametric generation system
+    """
     try:
-        categorization = cultural_service.categorization_service.categorize_element(
-            element_name=element_name,
-            culture=culture,
-            description=description
+        philosophy_id = analysis_request.get("philosophy")
+        event_type = analysis_request.get("eventType")
+        budget_range = analysis_request.get("budgetRange", "medium")
+        guest_count = analysis_request.get("guestCount", 50)
+        
+        if not philosophy_id or not event_type:
+            raise HTTPException(status_code=400, detail="philosophy and eventType required")
+        
+        # Get comprehensive analysis
+        philosophy = await cultural_service.get_philosophy(philosophy_id)
+        recommendations = await cultural_service.get_cultural_recommendations(
+            philosophy_id=philosophy_id,
+            event_type=event_type,
+            budget_range=budget_range,
+            guest_count=guest_count,
+            season=analysis_request.get("season", "spring")
         )
         
-        return {
-            "element_name": element_name,
-            "culture": culture,
-            "categorization": categorization,
-            "disclaimer": (
-                "Automatic categorization is preliminary and requires expert validation. "
-                "Do not use for production without cultural expert review."
-            )
-        }
-        
-    except Exception as e:
-        logger.error(f"Error categorizing element: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to categorize element"
-        )
-
-@router.get("/categories/guidelines")
-async def get_category_guidelines(
-    category: str = Query(..., description="Cultural category"),
-    current_user: User = Depends(get_current_user)
-):
-    """Get guidelines for a specific cultural category."""
-    cultural_service = CulturalService()
-    
-    try:
-        # Convert string to enum
-        try:
-            category_enum = CulturalCategory(category)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid category: {category}"
-            )
-        
-        guidelines = cultural_service.categorization_service.get_category_guidelines(category_enum)
-        
-        return {
-            "category": category,
-            "guidelines": guidelines,
-            "disclaimer": "Guidelines are for educational purposes. Consult cultural experts for authoritative guidance."
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error retrieving category guidelines: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve category guidelines"
-        )
-
-@router.get("/categories/all")
-async def get_all_categories(
-    current_user: User = Depends(get_current_user)
-):
-    """Get all available cultural categories."""
-    try:
-        categories = [{"value": cat.value, "name": cat.name} for cat in CulturalCategory]
-        sacred_levels = [{"value": level.value, "name": level.name} for level in SacredLevel]
-        event_contexts = [{"value": ctx.value, "name": ctx.name} for ctx in EventContext]
-        
-        return {
-            "categories": categories,
-            "sacred_levels": sacred_levels,
-            "event_contexts": event_contexts,
-            "total_categories": len(categories)
-        }
-        
-    except Exception as e:
-        logger.error(f"Error retrieving categories: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve categories"
-        )
-
-@router.post("/validate-context")
-async def validate_context_appropriateness(
-    category: str = Query(..., description="Cultural category"),
-    event_context: str = Query(..., description="Event context"),
-    sacred_level: str = Query(..., description="Sacred level"),
-    current_user: User = Depends(get_current_user)
-):
-    """Validate if a cultural element is appropriate for an event context."""
-    cultural_service = CulturalService()
-    
-    try:
-        # Convert strings to enums
-        try:
-            category_enum = CulturalCategory(category)
-            context_enum = EventContext(event_context)
-            sacred_enum = SacredLevel(sacred_level)
-        except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid enum value: {str(e)}"
-            )
-        
-        validation = cultural_service.categorization_service.validate_context_appropriateness(
-            category=category_enum,
-            event_context=context_enum,
-            sacred_level=sacred_enum
+        # Validate basic elements
+        basic_elements = analysis_request.get("elements", [])
+        validation = await cultural_service.validate_cultural_sensitivity(
+            philosophy_id=philosophy_id,
+            event_type=event_type,
+            elements=basic_elements,
+            guest_count=guest_count
         )
         
-        return {
-            "category": category,
-            "event_context": event_context,
-            "sacred_level": sacred_level,
+        # Compile AI-friendly response
+        ai_analysis = {
+            "culturalScore": 85.0,  # Base score
+            "philosophy": {
+                "id": philosophy_id,
+                "name": philosophy.get("name", {}).get("en", ""),
+                "coreValues": philosophy.get("coreValues", []),
+                "sensitivityLevel": philosophy.get("culturalSensitivity", {}).get("level", "medium")
+            },
+            "recommendations": recommendations,
             "validation": validation,
-            "disclaimer": "Context validation is preliminary. Always consult with cultural experts."
+            "aiGuidance": {
+                "colorPalette": recommendations.get("colorPalette", [])[:3],  # Top 3 colors
+                "materials": recommendations.get("materials", [])[:3],  # Top 3 materials
+                "spatialGuidance": recommendations.get("spatialGuidance", {}),
+                "culturalElements": philosophy.get("coreValues", [])[:5]  # Top 5 values
+            }
+        }
+        
+        # Adjust cultural score based on validation
+        if validation.get("consultationRequired"):
+            ai_analysis["culturalScore"] -= 10
+        if validation.get("warnings"):
+            ai_analysis["culturalScore"] -= len(validation.get("warnings", [])) * 2
+        
+        ai_analysis["culturalScore"] = max(50.0, min(100.0, ai_analysis["culturalScore"]))
+        
+        return {
+            "success": True,
+            "analysis": ai_analysis,
+            "timestamp": datetime.now().isoformat()
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error validating context appropriateness: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to validate context appropriateness"
-        )
+        logger.error(f"Error in AI cultural analysis: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/ai/cultural-elements/{philosophy_id}", summary="Get AI-optimized cultural elements")
+async def get_ai_cultural_elements(
+    philosophy_id: str,
+    event_type: str = Query(..., description="Event type for context"),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+) -> Dict[str, Any]:
+    """
+    Get cultural elements optimized for AI parametric generation
+    """
+    try:
+        # Get all elements for the philosophy
+        elements = await cultural_service.get_design_elements(philosophy_id)
+        philosophy = await cultural_service.get_philosophy(philosophy_id)
+        
+        if not philosophy:
+            raise HTTPException(status_code=404, detail="Philosophy not found")
+        
+        # Structure for AI consumption
+        ai_elements = {
+            "philosophy": {
+                "id": philosophy_id,
+                "name": philosophy.get("name", {}),
+                "coreValues": philosophy.get("coreValues", [])
+            },
+            "colorPalettes": [],
+            "materials": [],
+            "patterns": [],
+            "spatialPrinciples": philosophy.get("spatialPrinciples", []),
+            "culturalConstraints": {
+                "sacredElements": philosophy.get("culturalSensitivity", {}).get("sacredElements", []),
+                "consultationRequired": philosophy.get("culturalSensitivity", {}).get("consultationRequired", False),
+                "sensitivityLevel": philosophy.get("culturalSensitivity", {}).get("level", "medium")
+            }
+        }
+        
+        # Process elements into AI-friendly format
+        for element in elements:
+            element_type = element.get("elementType")
+            
+            if element_type == "colorPalette":
+                colors = element.get("colors", [])
+                for color in colors:
+                    ai_elements["colorPalettes"].append({
+                        "name": color.get("name"),
+                        "hex": color.get("hex"),
+                        "rgb": color.get("rgb"),
+                        "meaning": color.get("culturalMeaning"),
+                        "usage": color.get("usage", []),
+                        "seasonality": color.get("seasonality", [])
+                    })
+            
+            elif element_type == "materials":
+                materials = element.get("materials", [])
+                for material in materials:
+                    ai_elements["materials"].append({
+                        "name": material.get("name"),
+                        "types": material.get("types", []),
+                        "properties": material.get("properties", {}),
+                        "culturalSignificance": material.get("culturalSignificance", ""),
+                        "sustainability": material.get("properties", {}).get("sustainabilityRating", 0)
+                    })
+        
+        return {
+            "success": True,
+            "elements": ai_elements,
+            "philosophyId": philosophy_id,
+            "eventType": event_type
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching AI cultural elements: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
