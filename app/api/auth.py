@@ -23,7 +23,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    token_data = verify_token(credentials.credentials)
+    token_data = verify_token(credentials.credential)
     if not token_data:
         raise credentials_exception
     
@@ -32,7 +32,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise credentials_exception
     
     # Get user from database
-    db = get_database()
+    db = await get_database()
     user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user_doc:
         raise credentials_exception
@@ -67,7 +67,7 @@ async def get_current_user_from_token(token: str) -> Optional[User]:
         return None
     
     # Get user from database
-    db = get_database()
+    db = await get_database()
     user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
     
     if user_doc is None:
@@ -95,7 +95,7 @@ async def get_current_user_optional(
         return None
     
     try:
-        token_data = verify_token(credentials.credentials)
+        token_data = verify_token(credentials.credential)
         if not token_data:
             return None
         
@@ -127,7 +127,7 @@ async def get_current_user_optional(
 @router.post("/register", response_model=Token)
 async def register(user_data: UserCreate):
     """Register a new user."""
-    db = get_database()
+    db = await get_database()
     
     # Check if user already exists
     existing_user = await db.users.find_one({"email": user_data.email})
@@ -169,7 +169,7 @@ async def register(user_data: UserCreate):
 @router.post("/login", response_model=Token)
 async def login(user_credentials: UserLogin):
     """Authenticate user and return access token."""
-    db = get_database()
+    db = await get_database()
     
     # Find user by email
     user_doc = await db.users.find_one({"email": user_credentials.email})
