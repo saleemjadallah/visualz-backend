@@ -4,7 +4,8 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.api import auth, projects, designs, ai, uploads, cv_analysis, cultural, websocket, cultural_philosophy, parametric_furniture, parametric
-from app.services.database import init_db, close_db
+from app.services.database import init_db, close_db, get_database
+import motor.motor_asyncio
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -61,4 +62,45 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    """
+    Health check endpoint for Railway deployment.
+    Returns basic health status without database dependency.
+    """
+    return {
+        "status": "healthy",
+        "service": "DesignVisualz API",
+        "version": "1.0.0",
+        "port": settings.PORT
+    }
+
+@app.get("/health/detailed")
+async def detailed_health_check():
+    """
+    Detailed health check that verifies all dependencies.
+    Use this for debugging, not for deployment health checks.
+    """
+    health_status = {
+        "status": "healthy",
+        "service": "DesignVisualz API",
+        "version": "1.0.0",
+        "port": settings.PORT,
+        "environment": settings.ENVIRONMENT,
+        "checks": {}
+    }
+    
+    # Check database connection
+    try:
+        db = await get_database()
+        await db.command("ping")
+        health_status["checks"]["database"] = {"status": "healthy", "message": "MongoDB connected"}
+    except Exception as e:
+        health_status["checks"]["database"] = {"status": "unhealthy", "message": str(e)}
+        health_status["status"] = "degraded"
+    
+    # Check API keys presence (not the actual values)
+    health_status["checks"]["api_keys"] = {
+        "openai": bool(settings.OPENAI_API_KEY),
+        "cloudinary": bool(settings.CLOUDINARY_API_KEY)
+    }
+    
+    return health_status

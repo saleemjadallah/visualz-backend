@@ -41,7 +41,7 @@ class UserFurnitureRequest(BaseModel):
     culture: CultureType
     guestCount: int
     spaceDimensions: Dict[str, float]
-    budgetRange: str = Field(..., regex="^(low|medium|high|luxury)$")
+    budgetRange: str = Field(..., pattern="^(low|medium|high|luxury)$")
     formalityLevel: FormalityLevel
     specialRequirements: str
 
