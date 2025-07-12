@@ -13,8 +13,9 @@ import asyncio
 from datetime import datetime
 from pathlib import Path
 
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, get_current_user_optional
 from app.models.user import User
+from typing import Optional as OptionalType
 from app.services.ai_service import AIDesignService
 from app.models.design import AIDesignRequest
 
@@ -26,15 +27,22 @@ THREEJS_BRIDGE_PATH = Path(__file__).parent.parent.parent / "parametric-furnitur
 
 class EventRequirementsRequest(BaseModel):
     event_type: str = Field(..., description="Type of event (birthday, wedding, corporate, etc.)")
-    cultural_background: List[str] = Field(..., description="Primary and secondary cultural backgrounds")
-    space_dimensions: Dict[str, float] = Field(..., description="Width, depth, height in meters")
+    celebration_type: Optional[str] = Field(None, description="Specific celebration type")
+    cultural_preferences: Optional[List[str]] = Field(None, description="Cultural preferences")
+    cultural_background: Optional[List[str]] = Field(None, description="Primary and secondary cultural backgrounds")
+    space_data: Optional[Dict[str, Any]] = Field(None, description="Space dimensions and details")
+    space_dimensions: Optional[Dict[str, float]] = Field(None, description="Width, depth, height in meters")
     guest_count: int = Field(..., description="Total number of expected guests")
-    budget_range: str = Field(..., description="Budget category: low, medium, high, luxury")
-    accessibility_requirements: List[str] = Field(default=[], description="Specific accessibility needs")
-    style_preferences: List[str] = Field(default=[], description="Style and aesthetic preferences")
-    venue_type: str = Field(default="indoor", description="indoor, outdoor, mixed, covered-outdoor")
-    timing: Dict[str, str] = Field(default={}, description="Season, time of day, weather expectations")
-    special_requirements: List[str] = Field(default=[], description="Unique event requirements")
+    budget_tier: Optional[str] = Field(None, description="Budget tier from frontend")
+    budget_range: Optional[str] = Field(None, description="Budget category: low, medium, high, luxury")
+    age_range: Optional[str] = Field(None, description="Age range of attendees")
+    celebration_amenities: Optional[List[str]] = Field(default=[], description="Selected celebration amenities")
+    accessibility_requirements: Optional[List[str]] = Field(default=[], description="Specific accessibility needs")
+    style_preferences: Optional[List[str]] = Field(default=[], description="Style and aesthetic preferences")
+    special_needs: Optional[List[str]] = Field(default=[], description="Special needs requirements")
+    venue_type: Optional[str] = Field(default="indoor", description="indoor, outdoor, mixed, covered-outdoor")
+    timing: Optional[Dict[str, str]] = Field(default={}, description="Season, time of day, weather expectations")
+    special_requirements: Optional[List[str]] = Field(default=[], description="Unique event requirements")
 
 class AIDesignResponse(BaseModel):
     """Structured response format for Three.js integration"""
@@ -61,7 +69,7 @@ class ThreeJSSceneResult(BaseModel):
 async def generate_ai_threejs_scene(
     request: EventRequirementsRequest,
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user)
+    current_user: OptionalType[User] = Depends(get_current_user_optional)
 ):
     """
     Generate complete 3D scene from user preferences using AI + Three.js integration
@@ -75,7 +83,8 @@ async def generate_ai_threejs_scene(
     """
     try:
         start_time = datetime.now()
-        logger.info(f"Starting AI-Three.js scene generation for user {current_user.email}")
+        user_email = current_user.email if current_user else "anonymous"
+        logger.info(f"Starting AI-Three.js scene generation for user {user_email}")
         
         # Phase 1: Convert form data to AI prompt request
         ai_prompt_request = convert_form_to_ai_prompt_request(request)
@@ -96,7 +105,8 @@ async def generate_ai_threejs_scene(
         
         # Phase 5: Prepare final response
         generation_time = (datetime.now() - start_time).total_seconds() * 1000
-        design_id = f"ai_3d_{int(start_time.timestamp())}_{current_user.id[:8]}"
+        user_id_suffix = current_user.id[:8] if current_user else "anon"
+        design_id = f"ai_3d_{int(start_time.timestamp())}_{user_id_suffix}"
         
         result = ThreeJSSceneResult(
             scene_data=scene_result.get("scene_data", {}),
@@ -145,17 +155,26 @@ async def generate_ai_design_response(ai_service: AIDesignService, prompt_reques
 def convert_form_to_ai_prompt_request(request: EventRequirementsRequest) -> Dict[str, Any]:
     """Convert frontend form data to AI prompt system format"""
     
+    # Handle both frontend field names and expected field names
+    cultural_background = request.cultural_background or request.cultural_preferences or []
+    space_dimensions = request.space_dimensions or (request.space_data.get("dimensions") if request.space_data else {})
+    budget_range = request.budget_range or request.budget_tier or "medium"
+    accessibility_requirements = request.accessibility_requirements or request.special_needs or []
+    
     return {
         "event_type": request.event_type,
-        "cultural_background": request.cultural_background,
-        "space_dimensions": request.space_dimensions,
+        "celebration_type": request.celebration_type,
+        "cultural_background": cultural_background,
+        "space_dimensions": space_dimensions,
         "guest_count": request.guest_count,
-        "budget_range": request.budget_range,
-        "accessibility_requirements": request.accessibility_requirements,
-        "style_preferences": request.style_preferences,
-        "venue_type": request.venue_type,
-        "timing": request.timing,
-        "special_requirements": request.special_requirements
+        "budget_range": budget_range,
+        "age_range": request.age_range,
+        "accessibility_requirements": accessibility_requirements,
+        "style_preferences": request.style_preferences or [],
+        "venue_type": request.venue_type or "indoor",
+        "timing": request.timing or {},
+        "special_requirements": request.special_requirements or [],
+        "celebration_amenities": request.celebration_amenities or []
     }
 
 def format_ai_response_for_threejs(ai_response: Dict[str, Any], original_request: EventRequirementsRequest) -> AIDesignResponse:
@@ -178,9 +197,9 @@ def format_ai_response_for_threejs(ai_response: Dict[str, Any], original_request
                     "celebrationType": determine_celebration_type(original_request.event_type),
                     "ageGroup": determine_age_group(original_request.event_type, original_request.guest_count),
                     "theme": extract_theme_from_preferences(original_request.style_preferences),
-                    "culture": original_request.cultural_background[0] if original_request.cultural_background else "american",
+                    "culture": get_primary_culture(original_request),
                     "guestCount": original_request.guest_count,
-                    "spaceDimensions": original_request.space_dimensions,
+                    "spaceDimensions": get_space_dimensions(original_request),
                     "balloonSystems": True,
                     "photoBackdrops": True,
                     "interactiveProps": True,
@@ -190,9 +209,9 @@ def format_ai_response_for_threejs(ai_response: Dict[str, Any], original_request
                 },
                 "position": {"x": 0, "y": 0, "z": 0},
                 "rotation": {"x": 0, "y": 0, "z": 0},
-                "cultural_significance": f"Central celebration system with {original_request.cultural_background[0] if original_request.cultural_background else 'American'} traditions",
-                "accessibility_features": original_request.accessibility_requirements,
-                "budget_tier": map_budget_to_tier(original_request.budget_range)
+                "cultural_significance": f"Central celebration system with {get_primary_culture(original_request)} traditions",
+                "accessibility_features": get_accessibility_requirements(original_request),
+                "budget_tier": map_budget_to_tier(get_budget_range(original_request))
             },
             {
                 "type": "balloon-system",
@@ -200,14 +219,14 @@ def format_ai_response_for_threejs(ai_response: Dict[str, Any], original_request
                 "parameters": {
                     "balloonType": "themed",
                     "balloonCount": min(30, original_request.guest_count + 5),
-                    "colors": get_cultural_colors(original_request.cultural_background[0] if original_request.cultural_background else "american"),
+                    "colors": get_cultural_colors(get_primary_culture(original_request)),
                     "arrangement": "arch"
                 },
                 "position": {"x": 0, "y": 0, "z": -4},
                 "rotation": {"x": 0, "y": 0, "z": 0},
                 "cultural_significance": "Festive entrance arch for photo opportunities",
                 "accessibility_features": ["clear-pathway-underneath"],
-                "budget_tier": map_budget_to_tier(original_request.budget_range)
+                "budget_tier": map_budget_to_tier(get_budget_range(original_request))
             }
         ])
     
@@ -218,20 +237,20 @@ def format_ai_response_for_threejs(ai_response: Dict[str, Any], original_request
             "template": "enhanced-chair",
             "parameters": {
                 "chairType": "dining" if "dining" in original_request.event_type.lower() else "event",
-                "culture": original_request.cultural_background[0] if original_request.cultural_background else "modern",
+                "culture": get_primary_culture(original_request),
                 "count": max(4, original_request.guest_count // 4)
             },
             "position": {"x": 2, "y": 0, "z": 2},
             "rotation": {"x": 0, "y": 0, "z": 0},
             "cultural_significance": "Seating aligned with cultural ergonomics",
-            "accessibility_features": original_request.accessibility_requirements,
-            "budget_tier": map_budget_to_tier(original_request.budget_range)
+            "accessibility_features": get_accessibility_requirements(original_request),
+            "budget_tier": map_budget_to_tier(get_budget_range(original_request))
         }
     ])
     
     return AIDesignResponse(
         spatial_layout={
-            "dimensions": original_request.space_dimensions,
+            "dimensions": get_space_dimensions(original_request),
             "zones": generate_zones_for_event(original_request),
             "traffic_pathways": generate_pathways(original_request),
             "cultural_orientations": generate_cultural_orientations(original_request)
@@ -246,15 +265,15 @@ def format_ai_response_for_threejs(ai_response: Dict[str, Any], original_request
         parametric_generation_params={
             "templates_to_use": [spec["template"] for spec in furniture_specs],
             "cultural_adaptations": {
-                f"{original_request.cultural_background[0] if original_request.cultural_background else 'american'}_traditions": True,
+                f"{get_primary_culture(original_request)}_traditions": True,
                 "celebration_focus": is_celebration
             },
             "accessibility_modifications": {
-                "inclusive_design": len(original_request.accessibility_requirements) > 0,
+                "inclusive_design": len(get_accessibility_requirements(original_request)) > 0,
                 "safety_priority": is_celebration and "child" in original_request.event_type.lower()
             },
             "budget_constraints": {
-                "tier": map_budget_to_tier(original_request.budget_range),
+                "tier": map_budget_to_tier(get_budget_range(original_request)),
                 "focus_areas": ["cultural_authenticity", "accessibility", "safety"]
             }
         }
@@ -459,7 +478,7 @@ def generate_lighting_design(request: EventRequirementsRequest) -> Dict[str, Any
 
 def generate_cultural_elements(request: EventRequirementsRequest) -> List[Dict[str, Any]]:
     """Generate cultural elements for scene"""
-    culture = request.cultural_background[0] if request.cultural_background else "american"
+    culture = get_primary_culture(request)
     
     return [
         {
@@ -473,7 +492,7 @@ def generate_cultural_elements(request: EventRequirementsRequest) -> List[Dict[s
 
 def generate_material_palette(request: EventRequirementsRequest) -> Dict[str, Any]:
     """Generate material palette for event"""
-    culture = request.cultural_background[0] if request.cultural_background else "modern"
+    culture = get_primary_culture(request)
     cultural_colors = get_cultural_colors(culture)
     
     return {
@@ -567,3 +586,39 @@ def count_celebratory_props(design_response: AIDesignResponse) -> int:
         if any(term in spec["type"] for term in ["celebratory", "balloon", "photo", "ceremonial", "gift"]):
             count += 1
     return count
+
+def get_primary_culture(request: EventRequirementsRequest) -> str:
+    """Get primary culture from request, handling different field names"""
+    if request.cultural_background and len(request.cultural_background) > 0:
+        return request.cultural_background[0]
+    elif request.cultural_preferences and len(request.cultural_preferences) > 0:
+        return request.cultural_preferences[0]
+    return "american"
+
+def get_space_dimensions(request: EventRequirementsRequest) -> Dict[str, float]:
+    """Get space dimensions from request, handling different field names"""
+    if request.space_dimensions:
+        return request.space_dimensions
+    elif request.space_data and "dimensions" in request.space_data:
+        return request.space_data["dimensions"]
+    elif request.space_data:
+        # Extract width, depth, height from space_data
+        return {
+            "width": request.space_data.get("width", 10),
+            "depth": request.space_data.get("depth", 10),
+            "height": request.space_data.get("height", 3)
+        }
+    return {"width": 10, "depth": 10, "height": 3}
+
+def get_accessibility_requirements(request: EventRequirementsRequest) -> List[str]:
+    """Get accessibility requirements from request, handling different field names"""
+    requirements = []
+    if request.accessibility_requirements:
+        requirements.extend(request.accessibility_requirements)
+    if request.special_needs:
+        requirements.extend(request.special_needs)
+    return list(set(requirements))  # Remove duplicates
+
+def get_budget_range(request: EventRequirementsRequest) -> str:
+    """Get budget range from request, handling different field names"""
+    return request.budget_range or request.budget_tier or "medium"
