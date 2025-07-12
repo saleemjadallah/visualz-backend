@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.api import auth, projects, designs, ai, uploads, cv_analysis, cultural, websocket, cultural_philosophy, parametric_furniture, parametric, previews, ai_threejs
 from app.services.database import init_db, close_db, get_database
+from app.middleware.cors_handler import cors_middleware
 import motor.motor_asyncio
 
 @asynccontextmanager
@@ -26,6 +27,7 @@ async def lifespan(app: FastAPI):
 print(f"🚀 Starting DesignVisualz API on port {settings.PORT}")
 print(f"📍 Environment: {settings.ENVIRONMENT}")
 print(f"🌐 Railway URL: {settings.RAILWAY_STATIC_URL or 'Not set'}")
+print(f"🔒 CORS Origins: {settings.CORS_ORIGINS}")
 
 app = FastAPI(
     title="DesignVisualz API",
@@ -42,20 +44,27 @@ app = FastAPI(
     ]
 )
 
+# CORS middleware - must be added first
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
+)
+
 # Security middleware
 app.add_middleware(
     TrustedHostMiddleware, 
     allowed_hosts=settings.ALLOWED_HOSTS
 )
 
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Add custom CORS handler as backup
+@app.middleware("http")
+async def add_cors_handler(request, call_next):
+    return await cors_middleware(request, call_next)
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
