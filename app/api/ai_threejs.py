@@ -417,7 +417,6 @@ def format_ai_response_for_threejs(ai_response: Dict[str, Any], original_request
                 "culturalMaterial": cultural_materials.get("sofa", {}).get("cultural_name", "Traditional Fabric")
             }
         })
-    ])
     
     return AIDesignResponse(
         spatial_layout={
