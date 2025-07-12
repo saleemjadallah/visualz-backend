@@ -15,7 +15,10 @@ You need to set these environment variables in your Railway project settings:
 - `CLOUDINARY_API_SECRET` - Your Cloudinary API secret
 
 ### Security
-- `SECRET_KEY` - A secure secret key for JWT tokens (generate a random string)
+- `SECRET_KEY` - A secure secret key for JWT tokens
+  - Generate one using: `python3 generate_secret_key.py`
+  - Or use this example: `oNi29PE4MLmN9WkP243mYZulwm1TNz9tqLBpM4R3Jv4`
+  - **IMPORTANT**: Generate your own for production!
 
 ### Optional
 - `ENVIRONMENT` - Set to `production` for Railway (defaults to production)
