@@ -8,6 +8,8 @@ from app.models.project import Project
 from app.models.design import Design, ColorPalette, MaterialRecommendation, LightingPlan, BudgetBreakdown
 from app.services.cultural_philosophy_service import CulturalPhilosophyService, CulturalPhilosophy
 from app.services.enhanced_ai_service import EnhancedAIDesignService
+from app.services.enhanced_ai_prompt_system import EnhancedAIPromptSystemWithMongoDB
+from app.services.mongodb_cultural_database import MongoDBCulturalDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +18,10 @@ class AIDesignService:
         self.client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         self.cultural_service = CulturalPhilosophyService()
         self.enhanced_service = EnhancedAIDesignService()
+        self.mongodb_cultural_db = MongoDBCulturalDatabase()
+        self.enhanced_prompt_system = EnhancedAIPromptSystemWithMongoDB()
     
-    async def generate_design(self, project: Project, style_preferences: List[str] = None) -> Dict[str, Any]:
+    async def generate_design(self, project: Project, style_preferences: List[str] = None, use_mongodb_cultural_data: bool = True) -> Dict[str, Any]:
         """Generate a complete design using AI based on project requirements."""
         try:
             # Build the prompt using project data
@@ -50,12 +54,50 @@ class AIDesignService:
             event_context = get_event_specific_prompt(project.event_requirements.event_type)
             
             # Build the comprehensive prompt
-            user_prompt = build_design_prompt(space_data, event_requirements, cultural_context)
-            if event_context:
-                user_prompt += f"\n\nEVENT-SPECIFIC CONTEXT:\n{event_context}"
-            
-            if style_preferences:
-                user_prompt += f"\n\nSTYLE PREFERENCES: {', '.join(style_preferences)}"
+            if use_mongodb_cultural_data:
+                # Use MongoDB-enhanced prompt system
+                try:
+                    enhanced_prompt_data = await self.enhanced_prompt_system.generate_culturally_aware_design_prompt(
+                        event_type=project.event_requirements.event_type,
+                        culture=project.cultural_context.primary_culture,
+                        celebration_type=getattr(project.event_requirements, 'celebration_type', project.event_requirements.event_type),
+                        age_group=getattr(project.event_requirements, 'age_range', 'adult'),
+                        budget_tier=project.event_requirements.budget,
+                        guest_count=project.event_requirements.guest_count,
+                        special_requirements=project.event_requirements.special_requirements,
+                        venue_constraints={
+                            'space_size': f"{project.space_data.length}x{project.space_data.width}m",
+                            'layout': project.space_data.room_type,
+                            'restrictions': project.space_data.limitations
+                        }
+                    )
+                    
+                    if enhanced_prompt_data['success']:
+                        user_prompt = enhanced_prompt_data['design_concept']
+                        # Add style preferences if provided
+                        if style_preferences:
+                            user_prompt += f"\n\nADDITIONAL STYLE PREFERENCES: {', '.join(style_preferences)}"
+                    else:
+                        # Fallback to original prompt building
+                        user_prompt = build_design_prompt(space_data, event_requirements, cultural_context)
+                        if event_context:
+                            user_prompt += f"\n\nEVENT-SPECIFIC CONTEXT:\n{event_context}"
+                        if style_preferences:
+                            user_prompt += f"\n\nSTYLE PREFERENCES: {', '.join(style_preferences)}"
+                except Exception as e:
+                    logger.warning(f"MongoDB prompt enhancement failed, using fallback: {e}")
+                    user_prompt = build_design_prompt(space_data, event_requirements, cultural_context)
+                    if event_context:
+                        user_prompt += f"\n\nEVENT-SPECIFIC CONTEXT:\n{event_context}"
+                    if style_preferences:
+                        user_prompt += f"\n\nSTYLE PREFERENCES: {', '.join(style_preferences)}"
+            else:
+                # Use original prompt building
+                user_prompt = build_design_prompt(space_data, event_requirements, cultural_context)
+                if event_context:
+                    user_prompt += f"\n\nEVENT-SPECIFIC CONTEXT:\n{event_context}"
+                if style_preferences:
+                    user_prompt += f"\n\nSTYLE PREFERENCES: {', '.join(style_preferences)}"
             
             # Generate design with OpenAI
             response = await self.client.chat.completions.create(

@@ -18,6 +18,8 @@ from app.models.user import User
 from typing import Optional as OptionalType
 from app.services.ai_service import AIDesignService
 from app.models.design import AIDesignRequest
+from app.services.enhanced_ai_prompt_system import EnhancedAIPromptSystemWithMongoDB
+from app.services.mongodb_cultural_database import MongoDBCulturalDatabase
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -137,20 +139,110 @@ async def generate_ai_threejs_scene(
         )
 
 async def generate_ai_design_response(ai_service: AIDesignService, prompt_request: Dict[str, Any]) -> Dict[str, Any]:
-    """Generate AI design response using enhanced prompt system"""
+    """Generate AI design response using enhanced prompt system with MongoDB cultural data"""
     
-    # For now, create a structured response based on the request
-    # This will be replaced with actual AI service call once Python integration is ready
-    return {
-        "design_concept": f"AI-generated {prompt_request['event_type']} design",
-        "cultural_considerations": prompt_request.get("cultural_background", []),
-        "space_layout": prompt_request.get("space_dimensions", {}),
-        "furniture_recommendations": [],
-        "lighting_plan": {},
-        "material_suggestions": {},
-        "budget_allocation": {},
-        "accessibility_notes": prompt_request.get("accessibility_requirements", [])
-    }
+    try:
+        # Initialize MongoDB-enhanced prompt system
+        enhanced_prompt_system = EnhancedAIPromptSystemWithMongoDB()
+        
+        # Get primary culture (handle both list and string)
+        cultural_background = prompt_request.get("cultural_background", [])
+        primary_culture = cultural_background[0] if isinstance(cultural_background, list) and cultural_background else "american"
+        
+        # Generate culturally-aware design using MongoDB data
+        design_result = await enhanced_prompt_system.generate_culturally_aware_design_prompt(
+            event_type=prompt_request.get("event_type", "celebration"),
+            culture=primary_culture,
+            celebration_type=prompt_request.get("celebration_type", prompt_request.get("event_type", "birthday")),
+            age_group=prompt_request.get("age_range", "adult"),
+            budget_tier=prompt_request.get("budget_range", "medium"),
+            guest_count=prompt_request.get("guest_count", 20),
+            special_requirements=prompt_request.get("special_requirements", []),
+            venue_constraints={
+                "space_size": prompt_request.get("space_dimensions", {}),
+                "layout": prompt_request.get("venue_type", "indoor"),
+                "restrictions": prompt_request.get("accessibility_requirements", [])
+            }
+        )
+        
+        if design_result["success"]:
+            # Extract design elements from the AI response
+            design_concept = design_result.get("design_concept", "")
+            cultural_validation = design_result.get("cultural_validation", {})
+            vendor_recommendations = design_result.get("vendor_recommendations", [])
+            
+            # Get additional cultural data from MongoDB
+            cultural_db = MongoDBCulturalDatabase()
+            
+            # Fetch cultural elements
+            cultural_elements = cultural_db.get_cultural_elements(
+                culture=primary_culture,
+                event_type=prompt_request.get("event_type")
+            )
+            
+            # Get color meanings
+            color_meanings = cultural_db.get_color_meanings(primary_culture)
+            
+            # Get design patterns
+            design_patterns = cultural_db.get_design_patterns(primary_culture)
+            
+            # Build comprehensive response
+            return {
+                "design_concept": design_concept,
+                "cultural_considerations": {
+                    "primary_culture": primary_culture,
+                    "cultural_elements": cultural_elements[:5],  # Top 5 elements
+                    "color_guidance": color_meanings,
+                    "design_patterns": design_patterns[:3],  # Top 3 patterns
+                    "validation_result": cultural_validation
+                },
+                "space_layout": prompt_request.get("space_dimensions", {}),
+                "furniture_recommendations": _generate_furniture_recommendations(
+                    prompt_request, cultural_elements
+                ),
+                "lighting_plan": _generate_lighting_plan(
+                    prompt_request, color_meanings
+                ),
+                "material_suggestions": _generate_material_suggestions(
+                    cultural_elements, design_patterns
+                ),
+                "budget_allocation": _generate_budget_allocation(
+                    prompt_request.get("budget_range", "medium"),
+                    cultural_elements
+                ),
+                "accessibility_notes": prompt_request.get("accessibility_requirements", []),
+                "vendor_recommendations": vendor_recommendations,
+                "mongodb_cultural_data": True
+            }
+        else:
+            # Fallback to basic response
+            logger.warning(f"MongoDB cultural generation failed: {design_result.get('error')}")
+            return {
+                "design_concept": f"AI-generated {prompt_request['event_type']} design",
+                "cultural_considerations": prompt_request.get("cultural_background", []),
+                "space_layout": prompt_request.get("space_dimensions", {}),
+                "furniture_recommendations": [],
+                "lighting_plan": {},
+                "material_suggestions": {},
+                "budget_allocation": {},
+                "accessibility_notes": prompt_request.get("accessibility_requirements", []),
+                "mongodb_cultural_data": False
+            }
+            
+    except Exception as e:
+        logger.error(f"Error generating AI design response with MongoDB: {e}")
+        # Fallback to basic response
+        return {
+            "design_concept": f"AI-generated {prompt_request['event_type']} design",
+            "cultural_considerations": prompt_request.get("cultural_background", []),
+            "space_layout": prompt_request.get("space_dimensions", {}),
+            "furniture_recommendations": [],
+            "lighting_plan": {},
+            "material_suggestions": {},
+            "budget_allocation": {},
+            "accessibility_notes": prompt_request.get("accessibility_requirements", []),
+            "mongodb_cultural_data": False
+        }
 
 def convert_form_to_ai_prompt_request(request: EventRequirementsRequest) -> Dict[str, Any]:
     """Convert frontend form data to AI prompt system format"""
@@ -622,3 +714,339 @@ def get_accessibility_requirements(request: EventRequirementsRequest) -> List[st
 def get_budget_range(request: EventRequirementsRequest) -> str:
     """Get budget range from request, handling different field names"""
     return request.budget_range or request.budget_tier or "medium"
+
+# Additional helper functions for MongoDB integration
+
+def _generate_furniture_recommendations(prompt_request: Dict[str, Any], cultural_elements: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Generate furniture recommendations based on cultural elements"""
+    recommendations = []
+    
+    # Basic seating based on guest count
+    chair_count = max(4, prompt_request.get("guest_count", 20) // 4)
+    recommendations.append({
+        "type": "seating",
+        "item": "chairs",
+        "count": chair_count,
+        "cultural_style": prompt_request.get("cultural_background", ["american"])[0] if isinstance(prompt_request.get("cultural_background"), list) else "american",
+        "accessibility": "wheelchair_friendly" in prompt_request.get("accessibility_requirements", [])
+    })
+    
+    # Add cultural-specific furniture
+    for element in cultural_elements[:3]:  # Top 3 cultural elements
+        if element.get("category") == "furniture":
+            recommendations.append({
+                "type": "cultural_furniture",
+                "item": element.get("name", "traditional_piece"),
+                "cultural_significance": element.get("cultural_meaning", "Traditional design element"),
+                "placement": "featured_area"
+            })
+    
+    return recommendations
+
+def _generate_lighting_plan(prompt_request: Dict[str, Any], color_meanings: Dict[str, Any]) -> Dict[str, Any]:
+    """Generate lighting plan based on cultural color meanings"""
+    plan = {
+        "ambient_lighting": {
+            "type": "soft_warm",
+            "intensity": 0.6,
+            "color_temperature": "3000K"
+        },
+        "accent_lighting": {
+            "type": "spotlights",
+            "intensity": 0.8,
+            "cultural_focus": True
+        }
+    }
+    
+    # Add cultural color influences
+    if color_meanings:
+        dominant_colors = list(color_meanings.keys())[:2]
+        plan["cultural_colors"] = {
+            "primary": dominant_colors[0] if dominant_colors else "warm_white",
+            "accent": dominant_colors[1] if len(dominant_colors) > 1 else "soft_gold"
+        }
+    
+    return plan
+
+def _generate_material_suggestions(cultural_elements: List[Dict[str, Any]], design_patterns: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Generate material suggestions based on cultural elements and patterns"""
+    suggestions = {
+        "primary_materials": ["natural_wood", "cotton_fabric"],
+        "cultural_materials": [],
+        "textures": ["smooth", "woven"],
+        "sustainability_rating": "high"
+    }
+    
+    # Add materials from cultural elements
+    for element in cultural_elements[:3]:
+        materials = element.get("traditional_materials", [])
+        if materials:
+            suggestions["cultural_materials"].extend(materials[:2])
+    
+    # Add textures from design patterns
+    for pattern in design_patterns[:2]:
+        pattern_textures = pattern.get("textures", [])
+        if pattern_textures:
+            suggestions["textures"].extend(pattern_textures[:1])
+    
+    return suggestions
+
+def _generate_budget_allocation(budget_range: str, cultural_elements: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Generate budget allocation based on range and cultural requirements"""
+    base_budgets = {
+        "low": 1000,
+        "medium": 2500,
+        "high": 5000,
+        "luxury": 10000
+    }
+    
+    total_budget = base_budgets.get(budget_range, 2500)
+    
+    allocation = {
+        "total_budget": total_budget,
+        "furniture": int(total_budget * 0.35),
+        "cultural_elements": int(total_budget * 0.25),
+        "lighting": int(total_budget * 0.15),
+        "decorations": int(total_budget * 0.15),
+        "contingency": int(total_budget * 0.10)
+    }
+    
+    # Adjust for cultural complexity
+    cultural_complexity = len(cultural_elements)
+    if cultural_complexity > 3:
+        # Increase cultural elements budget
+        adjustment = int(total_budget * 0.05)
+        allocation["cultural_elements"] += adjustment
+        allocation["decorations"] -= adjustment
+    
+    return allocation
+
+# Missing endpoints that frontend expects
+
+@router.get("/cultural-suggestions")
+async def get_cultural_suggestions(
+    event_type: Optional[str] = None,
+    current_user: OptionalType[User] = Depends(get_current_user_optional)
+):
+    """Get AI-powered cultural suggestions for event planning."""
+    try:
+        from app.services.cultural_service import CulturalService
+        
+        cultural_service = CulturalService()
+        await cultural_service.initialize()
+        
+        # Get all available philosophies
+        philosophies = await cultural_service.get_all_philosophies()
+        
+        suggestions = []
+        for philosophy in philosophies:
+            philosophy_id = philosophy.get("philosophyId", "")
+            philosophy_name = philosophy.get("name", {}).get("en", philosophy_id)
+            
+            # Generate event-specific suggestions
+            if event_type:
+                recommendations = await cultural_service.get_cultural_recommendations(
+                    philosophy_id=philosophy_id,
+                    event_type=event_type,
+                    budget_range="medium",
+                    guest_count=20,
+                    season="spring"
+                )
+                
+                suggestions.append({
+                    "philosophy_id": philosophy_id,
+                    "philosophy_name": philosophy_name,
+                    "description": philosophy.get("description", {}).get("en", ""),
+                    "core_values": philosophy.get("coreValues", []),
+                    "event_suitability": recommendations.get("suitability_score", 0.8),
+                    "key_elements": recommendations.get("key_elements", []),
+                    "color_palette": recommendations.get("color_suggestions", [])
+                })
+            else:
+                # General cultural suggestions
+                suggestions.append({
+                    "philosophy_id": philosophy_id,
+                    "philosophy_name": philosophy_name,
+                    "description": philosophy.get("description", {}).get("en", ""),
+                    "core_values": philosophy.get("coreValues", []),
+                    "key_principles": philosophy.get("designPrinciples", []),
+                    "typical_events": philosophy.get("suitableEvents", [])
+                })
+        
+        return {
+            "success": True,
+            "event_type": event_type,
+            "suggestions": suggestions,
+            "count": len(suggestions)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting cultural suggestions: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get cultural suggestions: {str(e)}"
+        )
+
+@router.get("/celebration-suggestions")
+async def get_celebration_suggestions(
+    event_type: Optional[str] = None,
+    cultural_background: Optional[str] = None,
+    current_user: OptionalType[User] = Depends(get_current_user_optional)
+):
+    """Get AI-powered celebration suggestions and ideas."""
+    try:
+        # Define base celebration types with their characteristics
+        celebration_types = {
+            "birthday": {
+                "name": "Birthday Celebration",
+                "description": "Personal milestone celebration with age-appropriate activities",
+                "key_elements": ["birthday cake", "balloons", "party games", "photo opportunities"],
+                "cultural_variations": {
+                    "american": ["themed decorations", "party favors", "group activities"],
+                    "mexican": ["piñata", "mariachi music", "traditional foods"],
+                    "korean": ["doljanchi setup", "traditional hanbok", "ceremonial elements"],
+                    "jewish": ["ceremonial blessings", "traditional foods", "family gathering"]
+                }
+            },
+            "wedding": {
+                "name": "Wedding Celebration", 
+                "description": "Union celebration with ceremonial and reception elements",
+                "key_elements": ["ceremonial space", "reception area", "floral arrangements", "seating layout"]
+            },
+            "corporate": {
+                "name": "Corporate Event",
+                "description": "Professional gathering with networking and presentation elements",
+                "key_elements": ["presentation setup", "networking areas", "branding elements", "catering stations"]
+            }
+        }
+        
+        celebration_suggestions = []
+        if event_type and event_type.lower() in celebration_types:
+            event_data = celebration_types[event_type.lower()]
+            suggestion = {
+                "event_type": event_type.lower(),
+                "name": event_data["name"],
+                "description": event_data["description"],
+                "key_elements": event_data["key_elements"]
+            }
+            celebration_suggestions = [suggestion]
+        else:
+            for event_key, event_data in celebration_types.items():
+                celebration_suggestions.append({
+                    "event_type": event_key,
+                    "name": event_data["name"],
+                    "description": event_data["description"],
+                    "key_elements": event_data["key_elements"][:3]
+                })
+        
+        return {
+            "success": True,
+            "event_type": event_type,
+            "suggestions": celebration_suggestions,
+            "count": len(celebration_suggestions)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting celebration suggestions: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get celebration suggestions: {str(e)}"
+        )
+
+@router.get("/celebration-amenities/{celebration_type}")
+async def get_celebration_amenities(
+    celebration_type: str,
+    current_user: OptionalType[User] = Depends(get_current_user_optional)
+):
+    """Get celebration-specific amenities and props for event planning."""
+    try:
+        # Define amenities based on celebration type
+        amenities_database = {
+            "american-birthday": {
+                "name": "American Birthday Party",
+                "amenities": [
+                    {
+                        "id": "balloon-arch", 
+                        "name": "Balloon Arch",
+                        "category": "decorations",
+                        "description": "Colorful balloon archway for entrance or backdrop"
+                    },
+                    {
+                        "id": "photo-booth",
+                        "name": "Photo Booth",
+                        "category": "entertainment", 
+                        "description": "Interactive photo station with props"
+                    }
+                ]
+            },
+            "birthday": {
+                "name": "General Birthday Celebration",
+                "amenities": [
+                    {
+                        "id": "birthday-balloons",
+                        "name": "Birthday Balloons",
+                        "category": "decorations",
+                        "description": "Age-appropriate balloon decorations"
+                    }
+                ]
+            }
+        }
+        
+        celebration_key = celebration_type.lower().replace(" ", "-")
+        amenities_data = amenities_database.get(celebration_key) or amenities_database.get("birthday", {
+            "name": "Generic Celebration",
+            "amenities": []
+        })
+        
+        return {
+            "success": True,
+            "celebration_type": celebration_type,
+            "amenities": amenities_data.get("amenities", []),
+            "count": len(amenities_data.get("amenities", []))
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting celebration amenities: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get celebration amenities: {str(e)}"
+        )
+
+class ImageAnalysisRequest(BaseModel):
+    file_url: str
+    analysis_type: str = "comprehensive"
+
+@router.post("/analyze-image")
+async def analyze_image(
+    request: ImageAnalysisRequest,
+    current_user: OptionalType[User] = Depends(get_current_user_optional)
+):
+    """AI-powered image analysis for space planning and cultural context."""
+    try:
+        # Return mock analysis data for demo purposes
+        mock_analysis = {
+            "space_analysis": {
+                "room_type": "living_room",
+                "estimated_dimensions": {"width": 4.5, "length": 6.0, "height": 2.8},
+                "architectural_style": "modern"
+            },
+            "style_analysis": {
+                "dominant_style": "modern",
+                "cultural_indicators": ["american", "scandinavian"]
+            }
+        }
+        
+        return {
+            "success": True,
+            "file_url": request.file_url,
+            "analysis_type": request.analysis_type,
+            "cv_analysis": mock_analysis,
+            "note": "Using mock data for demo - full CV integration pending"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error analyzing image: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to analyze image: {str(e)}"
+        )

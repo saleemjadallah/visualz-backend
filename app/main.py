@@ -78,7 +78,7 @@ if cors_middleware:
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(designs.router, prefix="/api/designs", tags=["designs"])
-app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
+app.include_router(ai.router, prefix="/api/ai-legacy", tags=["ai"])  # Moved to avoid conflict
 app.include_router(uploads.router, prefix="/api/uploads", tags=["uploads"])
 app.include_router(cv_analysis.router, prefix="/api/cv", tags=["computer_vision"])
 app.include_router(cultural.router, prefix="/api/cultural", tags=["cultural"])
@@ -87,7 +87,7 @@ app.include_router(websocket.router, prefix="/api/ws", tags=["websocket"])
 app.include_router(parametric_furniture.router, prefix="/api/parametric-furniture", tags=["parametric_furniture"])
 app.include_router(parametric.router, prefix="/api/parametric", tags=["parametric"])
 app.include_router(previews.router, prefix="/api/previews", tags=["previews"])
-app.include_router(ai_threejs.router, prefix="/api/ai", tags=["ai_threejs"])
+app.include_router(ai_threejs.router, prefix="/api/ai", tags=["ai_threejs"])  # Keep this at /api/ai for 3D generation
 
 @app.get("/")
 async def root():
