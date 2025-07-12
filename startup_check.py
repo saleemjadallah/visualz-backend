@@ -7,11 +7,11 @@ def check_environment():
     """Check if all required environment variables are set"""
     required_vars = {
         'MONGODB_URL': 'MongoDB connection string',
-        'OPENAI_API_KEY': 'OpenAI API key',
-        'SECRET_KEY': 'JWT secret key'
+        'OPENAI_API_KEY': 'OpenAI API key'
     }
     
     optional_vars = {
+        'SECRET_KEY': 'JWT secret key (uses fallback if not set)',
         'CLOUDINARY_CLOUD_NAME': 'Cloudinary cloud name',
         'CLOUDINARY_API_KEY': 'Cloudinary API key',
         'CLOUDINARY_API_SECRET': 'Cloudinary API secret',
