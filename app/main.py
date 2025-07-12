@@ -5,7 +5,11 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.api import auth, projects, designs, ai, uploads, cv_analysis, cultural, websocket, cultural_philosophy, parametric_furniture, parametric, previews, ai_threejs
 from app.services.database import init_db, close_db, get_database
-from app.middleware.cors_handler import cors_middleware
+try:
+    from app.middleware.cors_handler import cors_middleware
+except ImportError:
+    print("Warning: Could not import custom CORS handler")
+    cors_middleware = None
 import motor.motor_asyncio
 
 @asynccontextmanager
@@ -45,9 +49,11 @@ app = FastAPI(
 )
 
 # CORS middleware - must be added first
+# TEMPORARY: Allow all origins to fix CORS issue
+print("⚠️  WARNING: CORS is allowing ALL origins - for testing only!")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=["*"],  # Allow all origins temporarily
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
@@ -62,9 +68,13 @@ app.add_middleware(
 )
 
 # Add custom CORS handler as backup
-@app.middleware("http")
-async def add_cors_handler(request, call_next):
-    return await cors_middleware(request, call_next)
+if cors_middleware:
+    try:
+        @app.middleware("http")
+        async def add_cors_handler(request, call_next):
+            return await cors_middleware(request, call_next)
+    except Exception as e:
+        print(f"Warning: Could not add custom CORS handler: {e}")
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
