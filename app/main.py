@@ -10,10 +10,22 @@ import motor.motor_asyncio
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    await init_db()
+    try:
+        await init_db()
+        print("✅ Database connection established")
+    except Exception as e:
+        print(f"⚠️ Database connection failed: {e}")
+        print("⚠️ Running without database connection")
     yield
     # Shutdown
-    await close_db()
+    try:
+        await close_db()
+    except Exception:
+        pass
+
+print(f"🚀 Starting DesignVisualz API on port {settings.PORT}")
+print(f"📍 Environment: {settings.ENVIRONMENT}")
+print(f"🌐 Railway URL: {settings.RAILWAY_STATIC_URL or 'Not set'}")
 
 app = FastAPI(
     title="DesignVisualz API",
@@ -62,7 +74,13 @@ app.include_router(ai_threejs.router, prefix="/api/ai", tags=["ai_threejs"])
 
 @app.get("/")
 async def root():
-    return {"message": "DesignVisualz API", "version": "1.0.0"}
+    return {
+        "message": "DesignVisualz API", 
+        "version": "1.0.0",
+        "status": "running",
+        "environment": settings.ENVIRONMENT,
+        "port": settings.PORT
+    }
 
 @app.get("/health")
 async def health_check():
