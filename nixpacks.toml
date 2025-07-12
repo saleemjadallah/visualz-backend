@@ -1,0 +1,22 @@
+[phases.setup]
+# Install system dependencies for Python packages
+aptPkgs = [
+    "libglib2.0-0",
+    "libsm6",
+    "libxext6",
+    "libxrender-dev",
+    "libgomp1",
+    "libgl1-mesa-glx",
+    "libgeos-dev"
+]
+
+[phases.install]
+# Use minimal requirements first
+cmds = [
+    "pip install --upgrade pip",
+    "pip install -r requirements-minimal.txt || true",
+    "pip list"
+]
+
+[start]
+# Start command is in railway.json
