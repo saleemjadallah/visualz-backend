@@ -74,7 +74,9 @@ async def health_check():
         "status": "healthy",
         "service": "DesignVisualz API",
         "version": "1.0.0",
-        "port": settings.PORT
+        "port": settings.PORT,
+        "environment": settings.ENVIRONMENT,
+        "railway_url": settings.RAILWAY_STATIC_URL or "not set"
     }
 
 @app.get("/health/detailed")

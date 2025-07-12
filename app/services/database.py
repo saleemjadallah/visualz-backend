@@ -18,9 +18,11 @@ async def connect_to_mongo():
         logger.info(f"MongoDB URL: {settings.MONGODB_URL[:30]}..." if settings.MONGODB_URL else "NOT SET")
         
         # Check if MongoDB URL is properly set
-        if not settings.MONGODB_URL or settings.MONGODB_URL.startswith("your-mongodb"):
-            logger.error("MongoDB URL is not properly configured. Please set MONGODB_URL environment variable.")
-            raise ValueError("MongoDB URL not configured")
+        if not settings.MONGODB_URL or settings.MONGODB_URL.startswith("your-mongodb") or settings.MONGODB_URL == "mongodb://localhost:27017/designvisualz":
+            logger.error("MongoDB URL is not properly configured. Please set MONGODB_URL environment variable in Railway.")
+            logger.error("Check Railway Variables tab and ensure MONGODB_URL is set with your MongoDB Atlas connection string.")
+            logger.error("Format: mongodb+srv://username:password@cluster.mongodb.net/dbname?retryWrites=true&w=majority")
+            raise ValueError("MongoDB URL not configured. Set MONGODB_URL in Railway environment variables.")
         
         # Enhanced MongoDB connection with SSL/TLS settings
         database.client = AsyncIOMotorClient(
