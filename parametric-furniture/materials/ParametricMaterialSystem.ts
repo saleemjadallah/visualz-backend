@@ -1,13 +1,50 @@
 import * as THREE from 'three';
 import { MaterialType, ParametricParameters, CultureType } from '../types/index';
 
+interface TextureSet {
+  map?: THREE.Texture;
+  normalMap?: THREE.Texture;
+  roughnessMap?: THREE.Texture;
+  metalnessMap?: THREE.Texture;
+  aoMap?: THREE.Texture;
+  displacementMap?: THREE.Texture;
+}
+
 export class ParametricMaterialSystem {
   private materialCache: Map<string, THREE.Material> = new Map();
   private textureLoader: THREE.TextureLoader;
+  private textureCache: Map<string, THREE.Texture> = new Map();
+  private loadingManager: THREE.LoadingManager;
+  private loadingState = { loaded: 0, total: 0 };
 
   constructor() {
-    this.textureLoader = new THREE.TextureLoader();
+    this.loadingManager = new THREE.LoadingManager();
+    this.textureLoader = new THREE.TextureLoader(this.loadingManager);
     this.initializeMaterials();
+    this.setupLoadingCallbacks();
+  }
+
+  private setupLoadingCallbacks(): void {
+    this.loadingManager.onStart = (url, itemsLoaded, itemsTotal) => {
+      console.log(`Started loading texture: ${url}`);
+      this.loadingState.loaded = itemsLoaded;
+      this.loadingState.total = itemsTotal;
+    };
+
+    this.loadingManager.onLoad = () => {
+      console.log('All textures loaded');
+      this.loadingState.loaded = this.loadingState.total;
+    };
+
+    this.loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
+      console.log(`Loading progress: ${itemsLoaded} / ${itemsTotal}`);
+      this.loadingState.loaded = itemsLoaded;
+      this.loadingState.total = itemsTotal;
+    };
+
+    this.loadingManager.onError = (url) => {
+      console.error(`Error loading texture: ${url}`);
+    };
   }
 
   getMaterial(materialType: MaterialType, parameters: ParametricParameters): THREE.Material {
@@ -93,6 +130,7 @@ export class ParametricMaterialSystem {
     
     // Add grain texture if high decorative intensity
     if (parameters.decorativeIntensity > 0.5) {
+      // Texture loading is async, so we initiate it but don't await
       this.addWoodGrainTexture(material, woodType);
     }
 
@@ -112,6 +150,7 @@ export class ParametricMaterialSystem {
     
     // Add fabric texture
     if (parameters.decorativeIntensity > 0.3) {
+      // Texture loading is async, so we initiate it but don't await
       this.addFabricTexture(material, fabricType);
     }
 
@@ -129,6 +168,12 @@ export class ParametricMaterialSystem {
     // Apply cultural finishing
     this.applyCulturalFinishing(material, parameters);
 
+    // Add metal textures if high decorative intensity
+    if (parameters.decorativeIntensity > 0.5) {
+      // Texture loading is async, so we initiate it but don't await
+      this.addMetalTexture(material, metalType);
+    }
+
     return material;
   }
 
@@ -142,6 +187,7 @@ export class ParametricMaterialSystem {
 
     // Add leather texture
     if (parameters.decorativeIntensity > 0.4) {
+      // Texture loading is async, so we initiate it but don't await
       this.addLeatherTexture(material);
     }
 
@@ -186,6 +232,7 @@ export class ParametricMaterialSystem {
 
     // Add stone texture
     if (parameters.decorativeIntensity > 0.3) {
+      // Texture loading is async, so we initiate it but don't await
       this.addStoneTexture(material);
     }
 
@@ -346,30 +393,320 @@ export class ParametricMaterialSystem {
     }
   }
 
-  // Texture application methods
-  private addWoodGrainTexture(material: THREE.MeshStandardMaterial, woodType: string): void {
-    // In a real implementation, these would load actual texture files
-    // For now, we'll simulate with procedural adjustments
-    material.roughness = material.roughness * 0.9; // Slight texture variation
+  // Texture URL mapping - using placeholder CDN URLs that can be replaced with actual assets
+  private getTextureURLs(materialType: string): Partial<Record<keyof TextureSet, string>> {
+    // These are placeholder URLs - replace with actual texture assets when available
+    const baseURL = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/';
+    
+    const textureMap: Record<string, Partial<Record<keyof TextureSet, string>>> = {
+      'wood-oak': {
+        map: `${baseURL}hardwood2_diffuse.jpg`,
+        normalMap: `${baseURL}hardwood2_normal.jpg`,
+        roughnessMap: `${baseURL}hardwood2_roughness.jpg`,
+        aoMap: `${baseURL}hardwood2_ao.jpg`
+      },
+      'wood-pine': {
+        map: `${baseURL}hardwood2_diffuse.jpg`,
+        normalMap: `${baseURL}hardwood2_normal.jpg`,
+        roughnessMap: `${baseURL}hardwood2_roughness.jpg`
+      },
+      'wood-cherry': {
+        map: `${baseURL}hardwood2_diffuse.jpg`,
+        normalMap: `${baseURL}hardwood2_normal.jpg`,
+        roughnessMap: `${baseURL}hardwood2_roughness.jpg`
+      },
+      'wood-bamboo': {
+        map: `${baseURL}hardwood2_diffuse.jpg`,
+        normalMap: `${baseURL}hardwood2_normal.jpg`
+      },
+      'fabric-cotton': {
+        map: `${baseURL}fabric_diffuse.jpg`,
+        normalMap: `${baseURL}fabric_normal.jpg`,
+        roughnessMap: `${baseURL}fabric_roughness.jpg`
+      },
+      'fabric-silk': {
+        map: `${baseURL}fabric_diffuse.jpg`,
+        normalMap: `${baseURL}fabric_normal.jpg`
+      },
+      'leather': {
+        map: `${baseURL}leather_diffuse.jpg`,
+        normalMap: `${baseURL}leather_normal.jpg`,
+        roughnessMap: `${baseURL}leather_roughness.jpg`
+      },
+      'metal-brass': {
+        map: `${baseURL}metal_diffuse.jpg`,
+        normalMap: `${baseURL}metal_normal.jpg`,
+        roughnessMap: `${baseURL}metal_roughness.jpg`,
+        metalnessMap: `${baseURL}metal_metalness.jpg`
+      },
+      'metal-steel': {
+        normalMap: `${baseURL}metal_normal.jpg`,
+        roughnessMap: `${baseURL}metal_roughness.jpg`,
+        metalnessMap: `${baseURL}metal_metalness.jpg`
+      },
+      'stone': {
+        map: `${baseURL}stone_diffuse.jpg`,
+        normalMap: `${baseURL}stone_normal.jpg`,
+        roughnessMap: `${baseURL}stone_roughness.jpg`,
+        aoMap: `${baseURL}stone_ao.jpg`,
+        displacementMap: `${baseURL}stone_displacement.jpg`
+      },
+      'ceramic': {
+        map: `${baseURL}ceramic_tiles_diffuse.jpg`,
+        normalMap: `${baseURL}ceramic_tiles_normal.jpg`
+      }
+    };
+    
+    return textureMap[materialType] || {};
   }
 
-  private addFabricTexture(material: THREE.MeshStandardMaterial, fabricType: string): void {
-    // Add fabric-specific texture properties
-    if (fabricType === 'wool') {
-      material.roughness = 1.0;
-    } else if (fabricType === 'silk') {
-      material.roughness = 0.2;
+  // Load texture with caching
+  private async loadTexture(url: string, settings?: {
+    wrapS?: THREE.Wrapping;
+    wrapT?: THREE.Wrapping;
+    repeat?: THREE.Vector2;
+    anisotropy?: number;
+  }): Promise<THREE.Texture> {
+    if (this.textureCache.has(url)) {
+      return this.textureCache.get(url)!.clone();
+    }
+
+    return new Promise((resolve, reject) => {
+      this.textureLoader.load(
+        url,
+        (texture) => {
+          // Apply settings
+          if (settings?.wrapS) texture.wrapS = settings.wrapS;
+          if (settings?.wrapT) texture.wrapT = settings.wrapT;
+          if (settings?.repeat) texture.repeat.copy(settings.repeat);
+          if (settings?.anisotropy) texture.anisotropy = settings.anisotropy;
+          
+          // Default settings for better quality
+          texture.generateMipmaps = true;
+          texture.minFilter = THREE.LinearMipmapLinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          
+          this.textureCache.set(url, texture);
+          resolve(texture.clone());
+        },
+        (progress) => {
+          // Progress callback
+        },
+        (error) => {
+          console.error(`Failed to load texture: ${url}`, error);
+          reject(error);
+        }
+      );
+    });
+  }
+
+  // Load texture set for PBR materials
+  private async loadTextureSet(materialType: string, tiling: number = 1): Promise<TextureSet> {
+    const urls = this.getTextureURLs(materialType);
+    const textureSet: TextureSet = {};
+    const loadPromises: Promise<void>[] = [];
+
+    const textureSettings = {
+      wrapS: THREE.RepeatWrapping,
+      wrapT: THREE.RepeatWrapping,
+      repeat: new THREE.Vector2(tiling, tiling),
+      anisotropy: 16
+    };
+
+    // Load each texture type if URL exists
+    if (urls.map) {
+      loadPromises.push(
+        this.loadTexture(urls.map, textureSettings).then(texture => {
+          textureSet.map = texture;
+        })
+      );
+    }
+
+    if (urls.normalMap) {
+      loadPromises.push(
+        this.loadTexture(urls.normalMap, textureSettings).then(texture => {
+          textureSet.normalMap = texture;
+        })
+      );
+    }
+
+    if (urls.roughnessMap) {
+      loadPromises.push(
+        this.loadTexture(urls.roughnessMap, textureSettings).then(texture => {
+          textureSet.roughnessMap = texture;
+        })
+      );
+    }
+
+    if (urls.metalnessMap) {
+      loadPromises.push(
+        this.loadTexture(urls.metalnessMap, textureSettings).then(texture => {
+          textureSet.metalnessMap = texture;
+        })
+      );
+    }
+
+    if (urls.aoMap) {
+      loadPromises.push(
+        this.loadTexture(urls.aoMap, textureSettings).then(texture => {
+          textureSet.aoMap = texture;
+        })
+      );
+    }
+
+    if (urls.displacementMap) {
+      loadPromises.push(
+        this.loadTexture(urls.displacementMap, textureSettings).then(texture => {
+          textureSet.displacementMap = texture;
+        })
+      );
+    }
+
+    await Promise.all(loadPromises);
+    return textureSet;
+  }
+
+  // Texture application methods with actual PBR texture loading
+  private async addWoodGrainTexture(material: THREE.MeshStandardMaterial, woodType: string): Promise<void> {
+    try {
+      const textureSet = await this.loadTextureSet(`wood-${woodType}`, 2);
+      
+      if (textureSet.map) {
+        material.map = textureSet.map;
+        material.needsUpdate = true;
+      }
+      
+      if (textureSet.normalMap) {
+        material.normalMap = textureSet.normalMap;
+        material.normalScale = new THREE.Vector2(1, 1);
+      }
+      
+      if (textureSet.roughnessMap) {
+        material.roughnessMap = textureSet.roughnessMap;
+      }
+      
+      if (textureSet.aoMap) {
+        material.aoMap = textureSet.aoMap;
+        material.aoMapIntensity = 1;
+      }
+    } catch (error) {
+      console.error(`Failed to load wood textures for ${woodType}:`, error);
+      // Fallback to procedural adjustment
+      material.roughness = material.roughness * 0.9;
     }
   }
 
-  private addLeatherTexture(material: THREE.MeshStandardMaterial): void {
-    // Add leather grain texture
-    material.roughness = 0.9;
+  private async addFabricTexture(material: THREE.MeshStandardMaterial, fabricType: string): Promise<void> {
+    try {
+      const textureSet = await this.loadTextureSet(`fabric-${fabricType}`, 4);
+      
+      if (textureSet.map) {
+        material.map = textureSet.map;
+        material.needsUpdate = true;
+      }
+      
+      if (textureSet.normalMap) {
+        material.normalMap = textureSet.normalMap;
+        material.normalScale = new THREE.Vector2(0.5, 0.5);
+      }
+      
+      if (textureSet.roughnessMap) {
+        material.roughnessMap = textureSet.roughnessMap;
+      }
+    } catch (error) {
+      console.error(`Failed to load fabric textures for ${fabricType}:`, error);
+      // Fallback to procedural properties
+      if (fabricType === 'wool') {
+        material.roughness = 1.0;
+      } else if (fabricType === 'silk') {
+        material.roughness = 0.2;
+      }
+    }
   }
 
-  private addStoneTexture(material: THREE.MeshStandardMaterial): void {
-    // Add stone surface texture
-    material.roughness = 1.0;
+  private async addLeatherTexture(material: THREE.MeshStandardMaterial): Promise<void> {
+    try {
+      const textureSet = await this.loadTextureSet('leather', 2);
+      
+      if (textureSet.map) {
+        material.map = textureSet.map;
+        material.needsUpdate = true;
+      }
+      
+      if (textureSet.normalMap) {
+        material.normalMap = textureSet.normalMap;
+        material.normalScale = new THREE.Vector2(2, 2);
+      }
+      
+      if (textureSet.roughnessMap) {
+        material.roughnessMap = textureSet.roughnessMap;
+      }
+    } catch (error) {
+      console.error('Failed to load leather textures:', error);
+      material.roughness = 0.9;
+    }
+  }
+
+  private async addStoneTexture(material: THREE.MeshStandardMaterial): Promise<void> {
+    try {
+      const textureSet = await this.loadTextureSet('stone', 1);
+      
+      if (textureSet.map) {
+        material.map = textureSet.map;
+        material.needsUpdate = true;
+      }
+      
+      if (textureSet.normalMap) {
+        material.normalMap = textureSet.normalMap;
+        material.normalScale = new THREE.Vector2(1, 1);
+      }
+      
+      if (textureSet.roughnessMap) {
+        material.roughnessMap = textureSet.roughnessMap;
+      }
+      
+      if (textureSet.aoMap) {
+        material.aoMap = textureSet.aoMap;
+        material.aoMapIntensity = 1;
+      }
+      
+      if (textureSet.displacementMap) {
+        material.displacementMap = textureSet.displacementMap;
+        material.displacementScale = 0.1;
+      }
+    } catch (error) {
+      console.error('Failed to load stone textures:', error);
+      material.roughness = 1.0;
+    }
+  }
+
+  private async addMetalTexture(material: THREE.MeshStandardMaterial, metalType: string): Promise<void> {
+    try {
+      const textureSet = await this.loadTextureSet(`metal-${metalType}`, 1);
+      
+      // Metals typically don't have a color map to preserve their metallic appearance
+      if (textureSet.map && metalType === 'brass') {
+        // Brass can have a color map for patina effects
+        material.map = textureSet.map;
+        material.needsUpdate = true;
+      }
+      
+      if (textureSet.normalMap) {
+        material.normalMap = textureSet.normalMap;
+        material.normalScale = new THREE.Vector2(0.5, 0.5);
+      }
+      
+      if (textureSet.roughnessMap) {
+        material.roughnessMap = textureSet.roughnessMap;
+      }
+      
+      if (textureSet.metalnessMap) {
+        material.metalnessMap = textureSet.metalnessMap;
+      }
+    } catch (error) {
+      console.error(`Failed to load metal textures for ${metalType}:`, error);
+      // Keep the procedural metalness/roughness values as fallback
+    }
   }
 
   // Material validation and optimization
@@ -427,9 +764,144 @@ export class ParametricMaterialSystem {
     return this.materialCache.size;
   }
 
+  getCachedTextureCount(): number {
+    return this.textureCache.size;
+  }
+
   clearMaterialCache(): void {
     this.materialCache.clear();
     this.initializeMaterials();
+  }
+
+  clearTextureCache(): void {
+    // Dispose of all cached textures to free memory
+    this.textureCache.forEach(texture => {
+      texture.dispose();
+    });
+    this.textureCache.clear();
+  }
+
+  // Preload textures for specific material types
+  async preloadTextures(materialTypes: MaterialType[]): Promise<void> {
+    const preloadPromises: Promise<void>[] = [];
+    
+    for (const materialType of materialTypes) {
+      preloadPromises.push(
+        this.loadTextureSet(materialType).then(() => {
+          console.log(`Preloaded textures for ${materialType}`);
+        }).catch(error => {
+          console.error(`Failed to preload textures for ${materialType}:`, error);
+        })
+      );
+    }
+    
+    await Promise.all(preloadPromises);
+  }
+
+  // Get loading progress
+  getLoadingProgress(): { loaded: number; total: number; progress: number } {
+    const { loaded, total } = this.loadingState;
+    const progress = total > 0 ? loaded / total : 0;
+    
+    return { loaded, total, progress };
+  }
+
+  // Create a high-quality PBR material with all texture features
+  async createPBRMaterial(
+    materialType: MaterialType, 
+    parameters: ParametricParameters,
+    options?: {
+      enableDisplacement?: boolean;
+      tiling?: number;
+      normalIntensity?: number;
+    }
+  ): Promise<THREE.Material> {
+    const baseColor = parameters.colorPalette[0] || this.getCulturalColors(parameters.culture)[0];
+    const material = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(baseColor),
+      name: `${materialType}-pbr`
+    });
+
+    try {
+      const textureSet = await this.loadTextureSet(materialType, options?.tiling || 1);
+      
+      if (textureSet.map) {
+        material.map = textureSet.map;
+        material.needsUpdate = true;
+      }
+      
+      if (textureSet.normalMap) {
+        material.normalMap = textureSet.normalMap;
+        material.normalScale = new THREE.Vector2(
+          options?.normalIntensity || 1,
+          options?.normalIntensity || 1
+        );
+      }
+      
+      if (textureSet.roughnessMap) {
+        material.roughnessMap = textureSet.roughnessMap;
+      }
+      
+      if (textureSet.metalnessMap) {
+        material.metalnessMap = textureSet.metalnessMap;
+      }
+      
+      if (textureSet.aoMap) {
+        material.aoMap = textureSet.aoMap;
+        material.aoMapIntensity = 1;
+      }
+      
+      if (textureSet.displacementMap && options?.enableDisplacement) {
+        material.displacementMap = textureSet.displacementMap;
+        material.displacementScale = 0.1;
+      }
+      
+      // Apply material-specific properties
+      switch (materialType) {
+        case 'wood-oak':
+        case 'wood-pine':
+        case 'wood-cherry':
+        case 'wood-bamboo':
+          material.roughness = this.getWoodRoughness(materialType.split('-')[1], parameters);
+          material.metalness = 0.0;
+          break;
+        case 'metal-brass':
+        case 'metal-steel':
+        case 'metal-copper':
+          material.roughness = this.getMetalRoughness(materialType.split('-')[1], parameters);
+          material.metalness = this.getMetalness(materialType.split('-')[1], parameters);
+          break;
+        case 'fabric-cotton':
+        case 'fabric-linen':
+        case 'fabric-silk':
+        case 'fabric-wool':
+          material.roughness = this.getFabricRoughness(materialType.split('-')[1], parameters);
+          material.metalness = 0.0;
+          break;
+        case 'leather':
+          material.roughness = 0.8;
+          material.metalness = 0.0;
+          break;
+        case 'ceramic':
+          material.roughness = 0.1;
+          material.metalness = 0.0;
+          break;
+        case 'stone':
+          material.roughness = 0.9;
+          material.metalness = 0.0;
+          break;
+      }
+      
+      // Apply cultural finishing
+      this.applyCulturalFinishing(material, parameters);
+      
+    } catch (error) {
+      console.error(`Failed to create PBR material for ${materialType}:`, error);
+      // Fallback to basic material
+      return this.createMaterial(materialType, parameters);
+    }
+    
+    return material;
   }
 
   getMaterialInfo(materialType: MaterialType): {
