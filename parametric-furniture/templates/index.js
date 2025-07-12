@@ -191,4 +191,3 @@ export { CulturalAnalyzer, SpatialPlanner, ExperienceDesigner, QualityValidator 
 // AI-Three.js Integration Service Export
 export { AIThreeJSIntegrationService } from '../ai-integration/AIThreeJSIntegrationService.js';
 export { default as AIThreeJSIntegrationServiceDefault } from '../ai-integration/AIThreeJSIntegrationService.js';
-//# sourceMappingURL=index.js.map

@@ -159,7 +159,9 @@ export declare const COMPLEXITY_LEVELS: {
         readonly estimatedTime: "45+ minutes";
     };
 };
-export { EventOrchestrationMaster } from '../orchestration/EventOrchestrationMaster';
-export type { EventOrchestrationParameters, OrchestrationResult } from '../orchestration/EventOrchestrationMaster';
-export { CulturalAnalyzer, SpatialPlanner, ExperienceDesigner, QualityValidator } from '../orchestration/OrchestrationUtils';
+export { EventOrchestrationMaster } from '../orchestration/EventOrchestrationMaster.js';
+export type { EventOrchestrationParameters, OrchestrationResult } from '../orchestration/EventOrchestrationMaster.js';
+export { CulturalAnalyzer, SpatialPlanner, ExperienceDesigner, QualityValidator } from '../orchestration/OrchestrationUtils.js';
+export { AIThreeJSIntegrationService } from '../ai-integration/AIThreeJSIntegrationService.js';
+export { default as AIThreeJSIntegrationServiceDefault } from '../ai-integration/AIThreeJSIntegrationService.js';
 //# sourceMappingURL=index.d.ts.map

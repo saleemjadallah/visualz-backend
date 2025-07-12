@@ -322,22 +322,101 @@ def format_ai_response_for_threejs(ai_response: Dict[str, Any], original_request
             }
         ])
     
-    # Add standard furniture
+    # Add standard furniture with PBR materials
+    primary_culture = get_primary_culture(original_request)
+    cultural_materials = get_cultural_material_mapping(primary_culture)
+    
+    # Calculate furniture counts based on guest count
+    chair_count = max(4, original_request.guest_count // 4)
+    table_count = max(1, original_request.guest_count // 8)
+    
     furniture_specs.extend([
         {
             "type": "chair",
             "template": "enhanced-chair",
             "parameters": {
                 "chairType": "dining" if "dining" in original_request.event_type.lower() else "event",
-                "culture": get_primary_culture(original_request),
-                "count": max(4, original_request.guest_count // 4)
+                "culture": primary_culture,
+                "count": chair_count
             },
             "position": {"x": 2, "y": 0, "z": 2},
             "rotation": {"x": 0, "y": 0, "z": 0},
             "cultural_significance": "Seating aligned with cultural ergonomics",
             "accessibility_features": get_accessibility_requirements(original_request),
-            "budget_tier": map_budget_to_tier(get_budget_range(original_request))
+            "budget_tier": map_budget_to_tier(get_budget_range(original_request)),
+            "material": {
+                "type": cultural_materials.get("chair", {}).get("type", "oak-wood"),
+                "pbrProperties": {
+                    "roughness": cultural_materials.get("chair", {}).get("roughness", 0.7),
+                    "metalness": cultural_materials.get("chair", {}).get("metalness", 0.1),
+                    "textureUrls": {
+                        "diffuse": f"/textures/{primary_culture}/chair_diffuse.jpg",
+                        "normal": f"/textures/{primary_culture}/chair_normal.jpg",
+                        "roughness": f"/textures/{primary_culture}/chair_roughness.jpg"
+                    }
+                },
+                "culturalMaterial": cultural_materials.get("chair", {}).get("cultural_name", "Traditional Wood")
+            }
+        },
+        {
+            "type": "table",
+            "template": "enhanced-table",
+            "parameters": {
+                "tableType": "dining" if "dining" in original_request.event_type.lower() else "cocktail",
+                "culture": primary_culture,
+                "count": table_count,
+                "shape": "rectangular" if original_request.guest_count > 20 else "round"
+            },
+            "position": {"x": 0, "y": 0, "z": 0},
+            "rotation": {"x": 0, "y": 0, "z": 0},
+            "cultural_significance": "Gathering surface with cultural design elements",
+            "accessibility_features": get_accessibility_requirements(original_request),
+            "budget_tier": map_budget_to_tier(get_budget_range(original_request)),
+            "material": {
+                "type": cultural_materials.get("table", {}).get("type", "oak-wood"),
+                "pbrProperties": {
+                    "roughness": cultural_materials.get("table", {}).get("roughness", 0.6),
+                    "metalness": cultural_materials.get("table", {}).get("metalness", 0.0),
+                    "textureUrls": {
+                        "diffuse": f"/textures/{primary_culture}/table_diffuse.jpg",
+                        "normal": f"/textures/{primary_culture}/table_normal.jpg",
+                        "roughness": f"/textures/{primary_culture}/table_roughness.jpg"
+                    }
+                },
+                "culturalMaterial": cultural_materials.get("table", {}).get("cultural_name", "Traditional Table Wood")
+            }
         }
+    ])
+    
+    # Add lounge furniture for larger events
+    if original_request.guest_count > 30:
+        furniture_specs.append({
+            "type": "sofa",
+            "template": "enhanced-sofa",
+            "parameters": {
+                "sofaType": "lounge",
+                "culture": primary_culture,
+                "count": max(1, original_request.guest_count // 20)
+            },
+            "position": {"x": -3, "y": 0, "z": 3},
+            "rotation": {"x": 0, "y": 45, "z": 0},
+            "cultural_significance": "Comfortable gathering space with cultural fabrics",
+            "accessibility_features": get_accessibility_requirements(original_request),
+            "budget_tier": map_budget_to_tier(get_budget_range(original_request)),
+            "material": {
+                "type": cultural_materials.get("sofa", {}).get("type", "linen-fabric"),
+                "pbrProperties": {
+                    "roughness": cultural_materials.get("sofa", {}).get("roughness", 0.8),
+                    "metalness": cultural_materials.get("sofa", {}).get("metalness", 0.0),
+                    "textureUrls": {
+                        "diffuse": f"/textures/{primary_culture}/fabric_diffuse.jpg",
+                        "normal": f"/textures/{primary_culture}/fabric_normal.jpg",
+                        "roughness": f"/textures/{primary_culture}/fabric_roughness.jpg"
+                    }
+                },
+                "culturalMaterial": cultural_materials.get("sofa", {}).get("cultural_name", "Traditional Fabric")
+            }
+        })
     ])
     
     return AIDesignResponse(
@@ -375,17 +454,55 @@ async def call_threejs_integration_service(design_response: AIDesignResponse) ->
     """Call Three.js integration service to generate scene"""
     
     try:
-        # For now, return mock Three.js scene data
-        # This will call the actual AIThreeJSIntegrationService when Node.js bridge is ready
+        # Convert furniture specifications to frontend format
+        furniture_items = []
+        for idx, spec in enumerate(design_response.furniture_specifications):
+            # Generate unique positions for multiple items
+            count = spec.get("parameters", {}).get("count", 1)
+            base_x = spec.get("position", {}).get("x", 0)
+            base_z = spec.get("position", {}).get("z", 0)
+            
+            for i in range(count):
+                # Distribute items in a grid pattern
+                offset_x = (i % 3) * 2 - 2
+                offset_z = (i // 3) * 2
+                
+                furniture_items.append({
+                    "id": f"{spec['type']}_{idx}_{i}",
+                    "name": f"{spec['type'].title()} {i+1}",
+                    "category": spec["type"],
+                    "x": base_x + offset_x,
+                    "y": base_z + offset_z,  # Frontend expects y as z position
+                    "width": 2.0,  # Default dimensions
+                    "height": 2.0,
+                    "rotation": spec.get("rotation", {}).get("y", 0),
+                    "color": "#8B4513",  # Default color
+                    "style": spec.get("parameters", {}).get("culture", "modern"),
+                    "material": spec.get("material", {})  # Include PBR material data
+                })
         
+        # Create complete scene data
         scene_data = {
             "scene": {
                 "name": "AI_Generated_Event_Scene",
-                "objects": len(design_response.furniture_specifications),
+                "objects": len(furniture_items),
                 "cultural_theme": design_response.cultural_elements[0]["culture"] if design_response.cultural_elements else "modern",
                 "celebration_props": count_celebratory_props(design_response),
                 "lighting_setup": "professional",
                 "accessibility_compliant": True
+            },
+            "furniture_items": furniture_items,
+            "color_palette": {
+                "primary": "#8B4513",
+                "secondary": "#D2691E", 
+                "accent": "#FFD700",
+                "neutral": "#F5F5DC"
+            },
+            "lighting_plan": {
+                "ambient_lighting": "warm",
+                "task_lighting": ["spotlights"],
+                "accent_lighting": ["uplights"],
+                "color_temperature": "3000K"
             },
             "metadata": {
                 "generation_method": "ai_threejs_integration",
@@ -412,6 +529,114 @@ async def call_threejs_integration_service(design_response: AIDesignResponse) ->
         raise
 
 # Helper functions
+
+def get_cultural_material_mapping(culture: str) -> Dict[str, Dict[str, Any]]:
+    """Get PBR material mappings for different cultures"""
+    material_mappings = {
+        "japanese": {
+            "chair": {
+                "type": "oak-wood",
+                "roughness": 0.8,
+                "metalness": 0.0,
+                "cultural_name": "Japanese Oak (Mizunara)"
+            },
+            "table": {
+                "type": "pine-wood",
+                "roughness": 0.7,
+                "metalness": 0.0,
+                "cultural_name": "Japanese Pine (Matsu)"
+            },
+            "sofa": {
+                "type": "linen-fabric",
+                "roughness": 0.9,
+                "metalness": 0.0,
+                "cultural_name": "Natural Linen"
+            }
+        },
+        "korean": {
+            "chair": {
+                "type": "pine-wood",
+                "roughness": 0.75,
+                "metalness": 0.0,
+                "cultural_name": "Korean Pine (Sonamu)"
+            },
+            "table": {
+                "type": "walnut-wood",
+                "roughness": 0.6,
+                "metalness": 0.0,
+                "cultural_name": "Korean Walnut"
+            },
+            "sofa": {
+                "type": "silk-fabric",
+                "roughness": 0.3,
+                "metalness": 0.1,
+                "cultural_name": "Traditional Silk"
+            }
+        },
+        "mexican": {
+            "chair": {
+                "type": "mahogany-wood",
+                "roughness": 0.5,
+                "metalness": 0.0,
+                "cultural_name": "Mexican Mahogany"
+            },
+            "table": {
+                "type": "pine-wood",
+                "roughness": 0.7,
+                "metalness": 0.0,
+                "cultural_name": "Pino Mexicano"
+            },
+            "sofa": {
+                "type": "leather",
+                "roughness": 0.6,
+                "metalness": 0.0,
+                "cultural_name": "Tooled Leather"
+            }
+        },
+        "jewish": {
+            "chair": {
+                "type": "cherry-wood",
+                "roughness": 0.6,
+                "metalness": 0.0,
+                "cultural_name": "Cherry Wood"
+            },
+            "table": {
+                "type": "oak-wood",
+                "roughness": 0.7,
+                "metalness": 0.0,
+                "cultural_name": "European Oak"
+            },
+            "sofa": {
+                "type": "velvet-fabric",
+                "roughness": 0.8,
+                "metalness": 0.0,
+                "cultural_name": "Rich Velvet"
+            }
+        },
+        "american": {
+            "chair": {
+                "type": "oak-wood",
+                "roughness": 0.7,
+                "metalness": 0.0,
+                "cultural_name": "American Oak"
+            },
+            "table": {
+                "type": "maple-wood",
+                "roughness": 0.6,
+                "metalness": 0.0,
+                "cultural_name": "Hard Maple"
+            },
+            "sofa": {
+                "type": "cotton-fabric",
+                "roughness": 0.85,
+                "metalness": 0.0,
+                "cultural_name": "Cotton Blend"
+            }
+        }
+    }
+    
+    # Return default american materials if culture not found
+    return material_mappings.get(culture, material_mappings["american"])
 
 def determine_celebration_type(event_type: str) -> str:
     """Determine specific celebration type from event description"""
