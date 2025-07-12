@@ -4,24 +4,24 @@ import os
 
 class Settings(BaseSettings):
     # Application settings
-    APP_NAME: str = os.getenv("APP_NAME", "DesignVisualz")
-    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
-    DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
+    APP_NAME: str = "DesignVisualz"
+    ENVIRONMENT: str = "production"  # Changed default to production
+    DEBUG: bool = False  # Changed default to False for production
     
     # Security
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
-    ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+    SECRET_KEY: str = "your-secret-key-change-in-production"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # Database
-    MONGODB_URL: str = os.getenv("MONGODB_URL", "mongodb://localhost:27017/designvisualz")
-    DATABASE_NAME: str = os.getenv("DATABASE_NAME", "designvisualz")
+    # Database - These will be overridden by Railway environment variables
+    MONGODB_URL: str = "mongodb://localhost:27017/designvisualz"
+    DATABASE_NAME: str = "designvisualz"
     
-    # External APIs
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    CLOUDINARY_CLOUD_NAME: str = os.getenv("CLOUDINARY_CLOUD_NAME", "")
-    CLOUDINARY_API_KEY: str = os.getenv("CLOUDINARY_API_KEY", "")
-    CLOUDINARY_API_SECRET: str = os.getenv("CLOUDINARY_API_SECRET", "")
+    # External APIs - These will be overridden by Railway environment variables
+    OPENAI_API_KEY: str = ""
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY: str = ""
+    CLOUDINARY_API_SECRET: str = ""
     
     # CORS and security
     CORS_ORIGINS: List[str] = os.getenv(
@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
+        env_file_encoding = "utf-8"
         case_sensitive = True
+        # Allow environment variables to override defaults
+        env_prefix = ""  # No prefix needed since variable names match
 
 settings = Settings()

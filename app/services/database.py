@@ -13,6 +13,15 @@ database = DatabaseConnection()
 async def connect_to_mongo():
     """Create database connection"""
     try:
+        logger.info(f"Attempting to connect to MongoDB...")
+        logger.info(f"Database name: {settings.DATABASE_NAME}")
+        logger.info(f"MongoDB URL: {settings.MONGODB_URL[:30]}..." if settings.MONGODB_URL else "NOT SET")
+        
+        # Check if MongoDB URL is properly set
+        if not settings.MONGODB_URL or settings.MONGODB_URL.startswith("your-mongodb"):
+            logger.error("MongoDB URL is not properly configured. Please set MONGODB_URL environment variable.")
+            raise ValueError("MongoDB URL not configured")
+        
         # Enhanced MongoDB connection with SSL/TLS settings
         database.client = AsyncIOMotorClient(
             settings.MONGODB_URL,
@@ -31,6 +40,7 @@ async def connect_to_mongo():
         
     except Exception as e:
         logger.error(f"Failed to connect to MongoDB: {e}")
+        logger.error(f"MongoDB URL configured: {bool(settings.MONGODB_URL and not settings.MONGODB_URL.startswith('your-mongodb'))}")
         raise
 
 async def close_mongo_connection():
