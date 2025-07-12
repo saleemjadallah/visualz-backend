@@ -23,7 +23,9 @@ app = FastAPI(
     redoc_url="/redoc" if settings.ENVIRONMENT == "development" else None,
     lifespan=lifespan,
     servers=[
-        {"url": "https://visualz.xyz", "description": "Production server"},
+        {"url": settings.RAILWAY_STATIC_URL, "description": "Production server"} if settings.RAILWAY_STATIC_URL else None,
+        {"url": f"http://localhost:{settings.PORT}", "description": "Development server"}
+    ] if settings.RAILWAY_STATIC_URL else [
         {"url": f"http://localhost:{settings.PORT}", "description": "Development server"}
     ]
 )

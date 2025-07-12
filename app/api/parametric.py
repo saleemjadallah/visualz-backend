@@ -13,6 +13,7 @@ from pathlib import Path
 # Import auth and user models
 from app.api.auth import get_current_user, get_current_user_optional
 from app.models.user import User
+from app.core.config import settings
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -375,7 +376,8 @@ async def render_complete_scene(
         generation_time = (datetime.now() - start_time).total_seconds()
         
         # Generate preview URL pointing to backend domain
-        preview_url = f"https://visualz.xyz/api/previews/scene_{int(datetime.now().timestamp())}.png"
+        base_url = settings.RAILWAY_STATIC_URL or f"http://localhost:{settings.PORT}"
+        preview_url = f"{base_url}/api/previews/scene_{int(datetime.now().timestamp())}.png"
         
         response = {
             "success": True,
