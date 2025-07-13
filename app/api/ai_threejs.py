@@ -527,6 +527,199 @@ async def call_threejs_integration_service(design_response: AIDesignResponse) ->
         logger.error(f"Three.js integration service failed: {str(e)}")
         raise
 
+class ConversationMessage(BaseModel):
+    type: str = Field(..., description="'user' | 'assistant' | 'system'")
+    content: str = Field(..., description="Message content")
+    timestamp: Optional[datetime] = Field(None, description="Message timestamp")
+
+class ParameterExtractionRequest(BaseModel):
+    message: str = Field(..., description="User's natural language message")
+    existing_params: Dict[str, Any] = Field(default_factory=dict, description="Already extracted parameters")
+    conversation_history: List[ConversationMessage] = Field(default_factory=list, description="Previous conversation messages")
+
+class ClarificationOption(BaseModel):
+    id: str = Field(..., description="Unique identifier for the option")
+    question: str = Field(..., description="Question to ask the user")
+    options: List[str] = Field(..., description="Available options to choose from")
+    required: bool = Field(..., description="Whether this clarification is required")
+
+class ParameterExtractionResponse(BaseModel):
+    extracted_params: Dict[str, Any] = Field(..., description="All extracted parameters")
+    needs_clarification: bool = Field(False, description="Whether clarification is needed")
+    clarification_question: Optional[str] = Field(None, description="Question to ask for clarification")
+    clarification_options: Optional[ClarificationOption] = Field(None, description="Options for clarification")
+    ready_to_generate: bool = Field(False, description="Whether all required params are collected")
+    response: str = Field(..., description="Natural language response to user")
+
+# System capabilities boundary
+SYSTEM_CAPABILITIES = {
+    'event_types': [
+        'wedding', 'birthday-child', 'birthday-adult', 'corporate', 
+        'baby-shower', 'graduation', 'anniversary', 'cultural-celebration',
+        'quinceañera', 'bar-bat-mitzvah', 'product-launch'
+    ],
+    'cultures': [
+        'japanese', 'scandinavian', 'italian', 'french', 'modern',
+        'american', 'mexican', 'korean', 'jewish', 'indian', 'mixed-heritage'
+    ],
+    'budget_ranges': [
+        'under-2k', '2k-5k', '5k-15k', '15k-30k', '30k-50k', 'over-50k'
+    ],
+    'style_preferences': [
+        'elegant', 'rustic', 'modern', 'traditional', 'minimalist', 
+        'vintage', 'bohemian', 'industrial', 'wabi-sabi', 'hygge', 
+        'bella-figura', 'savoir-vivre'
+    ],
+    'space_types': [
+        'indoor', 'outdoor', 'ballroom', 'conference-room', 'backyard',
+        'pavilion', 'home-living-room', 'rooftop', 'garden'
+    ],
+    'time_of_day': ['morning', 'afternoon', 'evening', 'all-day']
+}
+
+REQUIRED_PARAMS = ['event_type', 'guest_count', 'budget_range']
+
+@router.post("/extract-parameters", response_model=ParameterExtractionResponse)
+async def extract_parameters_from_chat(
+    request: ParameterExtractionRequest,
+    current_user: OptionalType[User] = Depends(get_current_user_optional)
+):
+    """
+    Extract event parameters from natural language chat messages
+    
+    This endpoint uses AI to understand user requirements from conversational input
+    and extract structured parameters needed for 3D scene generation.
+    """
+    try:
+        logger.info(f"Extracting parameters from message: {request.message[:100]}...")
+        
+        # Build extraction prompt
+        extraction_prompt = f"""
+        Extract event requirements from: "{request.message}"
+        
+        CRITICAL: Only extract parameters we can actually support.
+        
+        Available options:
+        - event_type: {SYSTEM_CAPABILITIES['event_types']}
+        - culture: {SYSTEM_CAPABILITIES['cultures']}
+        - budget_range: {SYSTEM_CAPABILITIES['budget_ranges']}
+        - style: {SYSTEM_CAPABILITIES['style_preferences']}
+        - space_type: {SYSTEM_CAPABILITIES['space_types']}
+        - time_of_day: {SYSTEM_CAPABILITIES['time_of_day']}
+        
+        Existing parameters: {json.dumps(request.existing_params)}
+        
+        Return JSON with:
+        {{
+          "extracted": {{
+            "event_type": "closest_match_or_null",
+            "culture": "detected_culture_or_null", 
+            "guest_count": "estimated_number_or_null",
+            "budget_range": "detected_range_or_null",
+            "style": "detected_style_or_null",
+            "space_type": "detected_space_or_null",
+            "time_of_day": "detected_time_or_null"
+          }},
+          "missing_critical": ["list", "of", "missing", "required", "fields"],
+          "confidence": "high|medium|low",
+          "response_tone": "friendly_acknowledgment_of_what_was_understood"
+        }}
+        
+        If user mentions something outside our capabilities, ignore it and focus on what we can support.
+        """
+        
+        # Use AI service for extraction
+        ai_service = AIDesignService()
+        extraction_result = await ai_service.extract_parameters_from_text(extraction_prompt)
+        
+        # Parse AI response
+        try:
+            result = json.loads(extraction_result)
+        except json.JSONDecodeError:
+            # Fallback parsing
+            result = {
+                "extracted": {},
+                "missing_critical": REQUIRED_PARAMS,
+                "confidence": "low",
+                "response_tone": "I'm having trouble understanding your requirements. Could you tell me more?"
+            }
+        
+        # Merge with existing parameters
+        updated_params = {**request.existing_params}
+        for key, value in result['extracted'].items():
+            if value and validate_parameter(key, value):
+                updated_params[key] = value
+        
+        # Check what's missing from required parameters
+        missing_required = [param for param in REQUIRED_PARAMS if param not in updated_params or not updated_params[param]]
+        
+        if missing_required:
+            # Generate clarification question for next missing parameter
+            clarification = generate_clarification_question(missing_required[0], updated_params)
+            
+            return ParameterExtractionResponse(
+                extracted_params=updated_params,
+                needs_clarification=True,
+                clarification_question=clarification['question'],
+                clarification_options=ClarificationOption(**clarification),
+                response=result.get('response_tone', 'Got it! Let me ask you one more thing...')
+            )
+        else:
+            # All required parameters collected
+            return ParameterExtractionResponse(
+                extracted_params=updated_params,
+                ready_to_generate=True,
+                response=f"Perfect! I have everything needed to design your {updated_params.get('event_type', 'event')}."
+            )
+            
+    except Exception as e:
+        logger.error(f"Parameter extraction failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to extract parameters: {str(e)}"
+        )
+
+def validate_parameter(key: str, value: str) -> bool:
+    """Validate parameter against system capabilities"""
+    if key == 'guest_count':
+        try:
+            count = int(value)
+            return 1 <= count <= 1000
+        except:
+            return False
+    
+    capability_key = f"{key}s" if key in ['event_type', 'culture', 'space_type'] else key
+    if capability_key == 'styles':
+        capability_key = 'style_preferences'
+    
+    return value in SYSTEM_CAPABILITIES.get(capability_key, [])
+
+def generate_clarification_question(missing_param: str, existing_params: Dict) -> Dict:
+    """Generate bounded clarification questions"""
+    
+    questions = {
+        'event_type': {
+            'id': 'event_type',
+            'question': 'What type of event are you planning?',
+            'options': ['Wedding', 'Birthday Party', 'Corporate Event', 'Cultural Celebration', 'Baby Shower', 'Graduation', 'Anniversary'],
+            'required': True
+        },
+        'guest_count': {
+            'id': 'guest_count',
+            'question': 'About how many people will attend?',
+            'options': ['10-25 people', '25-50 people', '50-100 people', '100-200 people', '200+ people'],
+            'required': True
+        },
+        'budget_range': {
+            'id': 'budget_range',
+            'question': "What's your approximate budget range?",
+            'options': ['Under $2,000', '$2,000-$5,000', '$5,000-$15,000', '$15,000-$30,000', '$30,000-$50,000', '$50,000+'],
+            'required': True
+        }
+    }
+    
+    return questions.get(missing_param, questions['event_type'])
+
 # Helper functions
 
 def get_cultural_material_mapping(culture: str) -> Dict[str, Dict[str, Any]]:

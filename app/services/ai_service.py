@@ -322,3 +322,30 @@ class AIDesignService:
                 "approved_elements": [],
                 "flagged_elements": design_elements
             }
+    
+    async def extract_parameters_from_text(self, extraction_prompt: str) -> str:
+        """Extract structured parameters from natural language text using AI."""
+        try:
+            response = await self.client.chat.completions.create(
+                model="gpt-4-turbo",
+                messages=[
+                    {
+                        "role": "system", 
+                        "content": "You are a parameter extraction assistant for an event design system. Extract only supported parameters and be helpful about missing information."
+                    },
+                    {"role": "user", "content": extraction_prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.3
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            logger.error(f"Error extracting parameters: {e}")
+            return json.dumps({
+                "extracted": {},
+                "missing_critical": ["event_type", "guest_count", "budget_range"],
+                "confidence": "low",
+                "response_tone": "I'm having trouble understanding. Could you please tell me more about your event?"
+            })
