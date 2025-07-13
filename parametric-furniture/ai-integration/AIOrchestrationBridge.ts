@@ -83,6 +83,169 @@ export class AIOrchestrationBridge {
   }
 
   /**
+   * Convert chat-extracted parameters to EventOrchestrationParameters
+   * NEW METHOD for chat-first interface
+   */
+  public convertChatParamsToOrchestrationParams(chatParams: {
+    eventType?: string;
+    guestCount?: number;
+    budget?: string;
+    culture?: string;
+    style?: string;
+    spaceType?: string;
+    timeOfDay?: string;
+    accessibility_needed?: boolean;
+  }): EventOrchestrationParameters {
+    console.log('💬 Converting chat parameters to orchestration parameters...');
+    
+    // Map chat budget format (e.g., "5k-15k") to our budget system
+    const budgetMapping: Record<string, string> = {
+      'under-2k': 'low',
+      '2k-5k': 'low',
+      '5k-15k': 'medium',
+      '15k-30k': 'high',
+      '30k-50k': 'high',
+      'over-50k': 'luxury'
+    };
+    
+    const budgetRange = budgetMapping[chatParams.budget || '5k-15k'] || 'medium';
+    const budget = this.parseBudgetRange(budgetRange);
+    
+    // Convert chat event type to orchestration event type
+    const eventTypeMapping: Record<string, EventOrchestrationParameters['eventType']> = {
+      'wedding': 'wedding',
+      'birthday': 'birthday',
+      'birthday-child': 'birthday',
+      'birthday-adult': 'birthday',
+      'corporate': 'corporate',
+      'cultural-celebration': 'cultural-ceremony',
+      'tea-ceremony': 'tea-ceremony',
+      'conference': 'conference',
+      'product-launch': 'exhibition',
+      'graduation': 'gala',
+      'anniversary': 'gala',
+      'baby-shower': 'cultural-ceremony',
+      'quinceañera': 'cultural-ceremony',
+      'bar-bat-mitzvah': 'cultural-ceremony'
+    };
+    
+    const eventType = eventTypeMapping[chatParams.eventType || 'cultural-ceremony'] || 'cultural-ceremony';
+    const scale = this.calculateEventScale(chatParams.guestCount || 50);
+    
+    // Map chat style to atmosphere
+    const styleToAtmosphere: Record<string, EventOrchestrationParameters['atmosphere']> = {
+      'elegant': 'formal',
+      'rustic': 'casual',
+      'modern': 'energetic',
+      'traditional': 'ceremonial',
+      'minimalist': 'contemplative',
+      'vintage': 'intimate',
+      'bohemian': 'casual',
+      'industrial': 'energetic',
+      'wabi-sabi': 'contemplative',
+      'hygge': 'intimate',
+      'bella-figura': 'formal',
+      'savoir-vivre': 'celebratory'
+    };
+    
+    const atmosphere = styleToAtmosphere[chatParams.style || 'elegant'] || 'formal';
+    
+    return {
+      // Event Foundation
+      eventType,
+      scale,
+      duration: this.estimateEventDuration(eventType),
+      
+      // Cultural Foundation from chat
+      primaryCulture: (chatParams.culture as any) || 'modern',
+      secondaryCultures: [],
+      culturalFusion: false,
+      ceremonyElements: this.extractCeremonyElementsFromEventType(eventType),
+      culturalSensitivity: chatParams.culture && chatParams.culture !== 'modern' ? 'high' : 'moderate',
+      
+      // Space Definition from chat
+      venue: {
+        type: (chatParams.spaceType as any) || 'indoor',
+        dimensions: {
+          width: chatParams.spaceType === 'outdoor' ? 20 : 10,
+          depth: chatParams.spaceType === 'outdoor' ? 15 : 8,
+          height: chatParams.spaceType === 'outdoor' ? 10 : 3
+        },
+        existingFeatures: [],
+        restrictions: chatParams.accessibility_needed ? ['wheelchair-accessible'] : [],
+        climate: this.determineClimate(chatParams.spaceType || 'indoor'),
+        acoustics: 'good',
+        naturalLight: chatParams.timeOfDay === 'evening' ? 'limited' : 'moderate'
+      },
+      
+      // Guest Demographics from chat
+      guests: {
+        total: chatParams.guestCount || 50,
+        adults: Math.floor((chatParams.guestCount || 50) * 0.8),
+        children: eventType === 'birthday' && chatParams.eventType?.includes('child') 
+          ? Math.floor((chatParams.guestCount || 50) * 0.5)
+          : Math.floor((chatParams.guestCount || 50) * 0.15),
+        elderly: Math.floor((chatParams.guestCount || 50) * 0.05),
+        vip: Math.floor((chatParams.guestCount || 50) * 0.1),
+        accessibility: chatParams.accessibility_needed ? ['wheelchair', 'visual-aids'] : [],
+        culturalBackgrounds: chatParams.culture ? [chatParams.culture] : ['mixed'],
+        languageSupport: []
+      },
+      
+      // Experience Goals & Atmosphere
+      atmosphere,
+      interactionStyle: eventType === 'corporate' ? 'presentation' : 'mingling',
+      memorabilityGoals: ['culturally-authentic', 'visually-stunning', 'comfortable'],
+      emotionalJourney: ['welcome', 'engagement', 'celebration', 'farewell'],
+      
+      // Technical Requirements (simplified for chat)
+      technology: {
+        audioVisual: true,
+        streaming: false,
+        recording: false,
+        interactive: chatParams.style === 'modern',
+        projection: chatParams.style === 'modern',
+        lighting: budget.total > 15000 ? 'professional' : 'basic'
+      },
+      
+      // Environmental from chat
+      timing: {
+        season: 'spring', // Default, could be enhanced
+        timeOfDay: this.mapChatTimeOfDay(chatParams.timeOfDay || 'evening'),
+        weather: 'variable'
+      },
+      
+      // Budget from chat
+      budget,
+      
+      // Accessibility from chat
+      accessibility: {
+        required: chatParams.accessibility_needed || false,
+        wheelchairCount: chatParams.accessibility_needed ? Math.ceil((chatParams.guestCount || 50) * 0.1) : 0,
+        visualAids: chatParams.accessibility_needed,
+        hearingAssist: chatParams.accessibility_needed,
+        serviceAnimals: chatParams.accessibility_needed
+      },
+      
+      // Catering (simplified for chat)
+      catering: {
+        style: eventType === 'corporate' ? 'cocktail' : 'buffet',
+        mealPeriods: ['main'],
+        dietaryRequirements: ['vegetarian', 'gluten-free'],
+        bar: budget.total > 5000,
+        specialItems: []
+      },
+      
+      // Priorities (auto-generated for chat)
+      priorities: {
+        primary: 'guest-experience',
+        secondary: 'cultural-authenticity',
+        tertiary: 'visual-impact'
+      }
+    };
+  }
+
+  /**
    * Convert AI prompt request to EventOrchestrationParameters
    */
   public convertAIRequestToOrchestrationParams(aiRequest: AIPromptRequest): EventOrchestrationParameters {
@@ -184,6 +347,40 @@ export class AIOrchestrationBridge {
 
     console.log('✅ AI request converted to orchestration parameters');
     return orchestrationParams;
+  }
+
+  /**
+   * Orchestrate from chat parameters - NEW METHOD for chat-first interface
+   */
+  public async orchestrateFromChat(chatParams: {
+    eventType?: string;
+    guestCount?: number;
+    budget?: string;
+    culture?: string;
+    style?: string;
+    spaceType?: string;
+    timeOfDay?: string;
+    accessibility_needed?: boolean;
+  }): Promise<OrchestrationResult> {
+    try {
+      console.log('💬 Starting chat-based orchestration...');
+      
+      // Convert chat params to orchestration parameters
+      const orchestrationParams = this.convertChatParamsToOrchestrationParams(chatParams);
+      
+      // Execute orchestration
+      const result = await this.orchestrator.orchestrateEvent(orchestrationParams);
+      
+      console.log('🎉 Chat-driven orchestration completed successfully!');
+      console.log('📊 Cultural Authenticity Score:', result.metadata.culturalAuthenticity);
+      console.log('💰 Budget Utilization:', result.metadata.budgetUtilization);
+      
+      return result;
+      
+    } catch (error) {
+      console.error('❌ Chat orchestration failed:', error);
+      throw new Error(`Chat orchestration failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**
@@ -578,6 +775,43 @@ export class AIOrchestrationBridge {
     }
     
     return priorities;
+  }
+
+  private extractCeremonyElementsFromEventType(eventType: string): string[] {
+    const elements: string[] = [];
+    
+    switch (eventType) {
+      case 'wedding':
+        elements.push('processional', 'vows', 'first-dance', 'cake-cutting');
+        break;
+      case 'tea-ceremony':
+        elements.push('tea-preparation', 'guest-serving', 'contemplation');
+        break;
+      case 'cultural-ceremony':
+        elements.push('blessing', 'cultural-ritual', 'feast');
+        break;
+      case 'birthday':
+        elements.push('cake-presentation', 'gift-opening', 'games');
+        break;
+      case 'corporate':
+        elements.push('keynote', 'networking', 'awards');
+        break;
+      default:
+        elements.push('gathering', 'main-event', 'farewell');
+    }
+    
+    return elements;
+  }
+
+  private mapChatTimeOfDay(timeOfDay: string): EventOrchestrationParameters['timing']['timeOfDay'] {
+    const mapping: Record<string, EventOrchestrationParameters['timing']['timeOfDay']> = {
+      'morning': 'morning',
+      'afternoon': 'afternoon',
+      'evening': 'evening',
+      'all-day': 'midday'
+    };
+    
+    return mapping[timeOfDay] || 'evening';
   }
 
   private parseBudgetRange(budgetRange: string): EventOrchestrationParameters['budget'] {
