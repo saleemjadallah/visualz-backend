@@ -632,6 +632,23 @@ async def extract_parameters_from_chat(
         ai_service = AIDesignService()
         extraction_result = await ai_service.extract_parameters_from_text(extraction_prompt)
         
+        # Also use enhanced prompt system for cultural context if available
+        try:
+            from app.services.enhanced_ai_prompt_system import EnhancedAIPromptSystemWithMongoDB
+            enhanced_ai = EnhancedAIPromptSystemWithMongoDB()
+            
+            # Get culturally-aware response if culture is specified
+            if 'culture' in result.get('extracted', {}):
+                cultural_response = await enhanced_ai.generate_chat_response_with_cultural_context(
+                    user_message=request.message,
+                    extracted_params=result['extracted'],
+                    conversation_history=[msg.dict() for msg in request.conversation_history]
+                )
+                if cultural_response.get('success'):
+                    result['response_tone'] = cultural_response['response']
+        except Exception as e:
+            logger.debug(f"Enhanced cultural response not available: {e}")
+        
         # Parse AI response
         try:
             result = json.loads(extraction_result)

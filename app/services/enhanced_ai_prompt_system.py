@@ -377,6 +377,296 @@ class EnhancedAIPromptSystemWithMongoDB:
         
         return prompt
     
+    async def generate_design_from_chat_params(
+        self,
+        chat_params: Dict[str, Any],
+        space_data: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        NEW METHOD: Generate design from chat-extracted parameters
+        This bridges the chat interface with the existing sophisticated prompt system
+        """
+        try:
+            # Convert chat parameters to our existing format
+            event_requirements = self._convert_chat_to_event_requirements(chat_params)
+            
+            # Use default space data if not provided
+            if not space_data:
+                space_data = self._get_default_space_data(chat_params.get('space_type', 'indoor'))
+            
+            # Call existing sophisticated prompt generation
+            result = await self.generate_culturally_aware_design_prompt(
+                event_type=event_requirements['event_type'],
+                culture=event_requirements['culture'],
+                celebration_type=event_requirements['celebration_type'],
+                age_group=event_requirements['age_group'],
+                budget_tier=event_requirements['budget_tier'],
+                guest_count=event_requirements['guest_count'],
+                special_requirements=event_requirements.get('special_requirements', []),
+                venue_constraints=space_data
+            )
+            
+            # Add chat-specific metadata
+            result['chat_metadata'] = {
+                'original_chat_params': chat_params,
+                'conversion_timestamp': datetime.now().isoformat(),
+                'user_input_method': 'chat'
+            }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error generating design from chat params: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "fallback_design": self._generate_chat_fallback_design(chat_params)
+            }
+    
+    def _convert_chat_to_event_requirements(self, chat_params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Convert chat-extracted parameters to existing event requirements format
+        """
+        # Map chat parameters to our existing system's expectations
+        event_type = chat_params.get('event_type', 'celebration')
+        culture = chat_params.get('culture', 'modern')
+        guest_count = chat_params.get('guest_count', 50)
+        
+        # Determine celebration type based on event type
+        celebration_type = self._determine_celebration_type(event_type, chat_params)
+        
+        # Determine age group from event type and guest info
+        age_group = self._determine_age_group(event_type, chat_params)
+        
+        # Convert budget range to budget tier
+        budget_tier = self._convert_budget_range_to_tier(chat_params.get('budget_range', '5k-15k'))
+        
+        return {
+            'event_type': event_type,
+            'culture': culture,
+            'celebration_type': celebration_type,
+            'age_group': age_group,
+            'budget_tier': budget_tier,
+            'guest_count': int(guest_count) if guest_count else 50,
+            'style_preferences': [chat_params.get('style')] if chat_params.get('style') else ['elegant'],
+            'time_of_day': chat_params.get('time_of_day', 'evening'),
+            'space_type': chat_params.get('space_type', 'indoor'),
+            'special_requirements': self._extract_special_requirements(chat_params)
+        }
+    
+    def _determine_celebration_type(self, event_type: str, chat_params: Dict[str, Any]) -> str:
+        """
+        Map event types to celebration types for cultural database lookup
+        """
+        celebration_mapping = {
+            'wedding': 'wedding-reception',
+            'birthday-child': 'birthday-celebration',
+            'birthday-adult': 'milestone-birthday',
+            'corporate': 'professional-gathering',
+            'baby-shower': 'baby-celebration',
+            'graduation': 'achievement-celebration',
+            'anniversary': 'anniversary-celebration',
+            'cultural-celebration': 'traditional-festival',
+            'quinceañera': 'quinceañera',
+            'bar-bat-mitzvah': 'bar-bat-mitzvah',
+            'product-launch': 'corporate-launch'
+        }
+        
+        return celebration_mapping.get(event_type, 'general-celebration')
+    
+    def _determine_age_group(self, event_type: str, chat_params: Dict[str, Any]) -> str:
+        """
+        Determine age group for age-appropriate design considerations
+        """
+        if 'child' in event_type:
+            return 'child'
+        elif event_type in ['quinceañera', 'bar-bat-mitzvah']:
+            return 'teen'
+        elif event_type == 'graduation':
+            return 'young-adult'
+        elif event_type == 'anniversary':
+            return 'adult'
+        elif event_type == 'corporate':
+            return 'professional'
+        else:
+            # Default to mixed-age for most celebrations
+            return 'mixed-age'
+    
+    def _convert_budget_range_to_tier(self, budget_range: str) -> str:
+        """
+        Convert chat budget ranges to our budget tier system
+        """
+        budget_mapping = {
+            'under-2k': 'economy',
+            '2k-5k': 'economy',
+            '5k-15k': 'moderate',
+            '15k-30k': 'moderate',
+            '30k-50k': 'premium',
+            'over-50k': 'luxury'
+        }
+        
+        return budget_mapping.get(budget_range, 'moderate')
+    
+    def _extract_special_requirements(self, chat_params: Dict[str, Any]) -> List[str]:
+        """
+        Extract special requirements from chat parameters
+        """
+        requirements = []
+        
+        # Add accessibility if mentioned
+        if chat_params.get('accessibility_needed'):
+            requirements.append('wheelchair-accessible')
+        
+        # Add outdoor considerations
+        if chat_params.get('space_type') == 'outdoor':
+            requirements.append('weather-contingency')
+            requirements.append('outdoor-appropriate')
+        
+        # Add cultural sensitivity requirements
+        if chat_params.get('culture') and chat_params.get('culture') != 'modern':
+            requirements.append('cultural-authenticity')
+        
+        # Add children considerations
+        if 'child' in chat_params.get('event_type', ''):
+            requirements.append('child-safe')
+            requirements.append('age-appropriate-activities')
+        
+        return requirements
+    
+    def _get_default_space_data(self, space_type: str) -> Dict[str, Any]:
+        """
+        Generate default space data based on space type
+        """
+        space_defaults = {
+            'indoor': {
+                'space_size': 'medium',
+                'layout': 'rectangular',
+                'ceiling_height': 'standard',
+                'restrictions': ['no-candles', 'noise-limits'],
+                'features': ['electrical-outlets', 'climate-control']
+            },
+            'outdoor': {
+                'space_size': 'large',
+                'layout': 'open',
+                'ceiling_height': 'open-sky',
+                'restrictions': ['weather-dependent', 'noise-considerations'],
+                'features': ['natural-lighting', 'garden-elements']
+            },
+            'ballroom': {
+                'space_size': 'large',
+                'layout': 'formal',
+                'ceiling_height': 'high',
+                'restrictions': ['formal-dress-code'],
+                'features': ['stage-area', 'dance-floor', 'professional-lighting']
+            },
+            'backyard': {
+                'space_size': 'medium',
+                'layout': 'casual',
+                'ceiling_height': 'open-sky',
+                'restrictions': ['neighbor-considerations', 'weather-dependent'],
+                'features': ['grass-area', 'natural-setting', 'intimate-scale']
+            }
+        }
+        
+        return space_defaults.get(space_type, space_defaults['indoor'])
+    
+    def _generate_chat_fallback_design(self, chat_params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generate a fallback design specifically for chat-originated requests
+        """
+        event_type = chat_params.get('event_type', 'celebration')
+        culture = chat_params.get('culture', 'modern')
+        
+        return {
+            "concept": f"Conversational {culture.title()} {event_type.title()} Design",
+            "description": f"A beautiful {event_type} design created from your conversation, "
+                          f"incorporating {culture} elements and your personal preferences.",
+            "key_elements": [
+                f"Authentic {culture} decorative elements",
+                "Conversational color palette based on your preferences",
+                "Guest-appropriate seating and activity areas",
+                "Cultural ceremony or focal areas",
+                "Photo-worthy moments and backdrops",
+                "Budget-conscious yet beautiful solutions"
+            ],
+            "chat_origin": True,
+            "note": "This design was created from our conversation. "
+                   "All cultural elements will be researched for authenticity and respect."
+        }
+    
+    async def generate_chat_response_with_cultural_context(
+        self,
+        user_message: str,
+        extracted_params: Dict[str, Any],
+        conversation_history: List[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate contextual chat responses using cultural intelligence
+        """
+        try:
+            # Get cultural context if culture is specified
+            cultural_context = ""
+            if extracted_params.get('culture'):
+                culture = extracted_params['culture']
+                cultural_elements = await self.cultural_db.get_cultural_elements(
+                    culture, extracted_params.get('event_type', 'celebration')
+                )
+                
+                if cultural_elements:
+                    cultural_context = f"""
+                    CULTURAL CONTEXT for {culture.upper()}:
+                    - This culture values: {', '.join([elem.get('value', '') for elem in cultural_elements[:3]])}
+                    - Important elements include: {', '.join([elem.get('name', '') for elem in cultural_elements[:3]])}
+                    - Key considerations: Respect traditions, authentic representation, cultural sensitivity
+                    """
+            
+            # Build context-aware prompt
+            context_prompt = f"""
+            You are responding in a chat conversation about event planning.
+            
+            USER MESSAGE: "{user_message}"
+            
+            EXTRACTED PARAMETERS SO FAR:
+            {json.dumps(extracted_params, indent=2)}
+            
+            {cultural_context}
+            
+            INSTRUCTIONS:
+            - Respond naturally and conversationally
+            - Show understanding of cultural elements if mentioned
+            - Be helpful about next steps
+            - Maintain enthusiasm about the event planning process
+            - If cultural elements are involved, show respect and knowledge
+            
+            Provide a brief, friendly response that acknowledges what you understand
+            and guides toward completion of the design process.
+            """
+            
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a culturally-aware event design assistant engaging in natural conversation."},
+                    {"role": "user", "content": context_prompt}
+                ],
+                temperature=0.8,
+                max_tokens=150
+            )
+            
+            return {
+                "success": True,
+                "response": response.choices[0].message.content,
+                "cultural_context_included": bool(cultural_context),
+                "parameters_understood": list(extracted_params.keys())
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating chat response: {e}")
+            return {
+                "success": False,
+                "response": "I understand you're planning something special! Let me help you create the perfect design.",
+                "error": str(e)
+            }
+    
     def close(self):
         """Clean up resources"""
         if hasattr(self, 'cultural_db'):
