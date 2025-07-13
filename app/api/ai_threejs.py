@@ -27,6 +27,32 @@ logger = logging.getLogger(__name__)
 # Three.js Integration Service Path
 THREEJS_BRIDGE_PATH = Path(__file__).parent.parent.parent / "parametric-furniture" / "ai-integration"
 
+# System capabilities for parameter extraction
+SYSTEM_CAPABILITIES = {
+    'event_types': [
+        'wedding', 'birthday-child', 'birthday-adult', 'corporate', 
+        'baby-shower', 'graduation', 'anniversary', 'cultural-celebration',
+        'quinceañera', 'bar-bat-mitzvah', 'product-launch'
+    ],
+    'cultures': [
+        'japanese', 'scandinavian', 'italian', 'french', 'modern',
+        'american', 'mexican', 'korean', 'jewish', 'indian', 'mixed-heritage'
+    ],
+    'budget_ranges': [
+        'under-2k', '2k-5k', '5k-15k', '15k-30k', '30k-50k', 'over-50k'
+    ],
+    'style_preferences': [
+        'elegant', 'rustic', 'modern', 'traditional', 'minimalist', 
+        'vintage', 'bohemian', 'industrial', 'wabi-sabi', 'hygge', 
+        'bella-figura', 'savoir-vivre'
+    ],
+    'space_types': [
+        'indoor', 'outdoor', 'ballroom', 'conference-room', 'backyard',
+        'pavilion', 'home-living-room', 'rooftop', 'garden'
+    ],
+    'time_of_day': ['morning', 'afternoon', 'evening', 'all-day']
+}
+
 class EventRequirementsRequest(BaseModel):
     event_type: str = Field(..., description="Type of event (birthday, wedding, corporate, etc.)")
     celebration_type: Optional[str] = Field(None, description="Specific celebration type")
@@ -544,42 +570,17 @@ class ClarificationOption(BaseModel):
     required: bool = Field(..., description="Whether this clarification is required")
 
 class ParameterExtractionResponse(BaseModel):
-    extractedParams: Dict[str, Any] = Field(..., description="All extracted parameters", alias="extracted_params")
-    needsClarification: bool = Field(False, description="Whether clarification is needed", alias="needs_clarification")
-    clarificationQuestion: Optional[str] = Field(None, description="Question to ask for clarification", alias="clarification_question")
-    clarificationOptions: Optional[ClarificationOption] = Field(None, description="Options for clarification", alias="clarification_options")
-    readyToGenerate: bool = Field(False, description="Whether all required params are collected", alias="ready_to_generate")
+    extractedParams: Dict[str, Any] = Field(..., description="All extracted parameters")
+    needsClarification: bool = Field(False, description="Whether clarification is needed")
+    clarificationQuestion: Optional[str] = Field(None, description="Question to ask for clarification")
+    clarificationOptions: Optional[ClarificationOption] = Field(None, description="Options for clarification")
+    readyToGenerate: bool = Field(False, description="Whether all required params are collected")
     response: str = Field(..., description="Natural language response to user")
 
-# System capabilities boundary
-SYSTEM_CAPABILITIES = {
-    'event_types': [
-        'wedding', 'birthday-child', 'birthday-adult', 'corporate', 
-        'baby-shower', 'graduation', 'anniversary', 'cultural-celebration',
-        'quinceañera', 'bar-bat-mitzvah', 'product-launch'
-    ],
-    'cultures': [
-        'japanese', 'scandinavian', 'italian', 'french', 'modern',
-        'american', 'mexican', 'korean', 'jewish', 'indian', 'mixed-heritage'
-    ],
-    'budget_ranges': [
-        'under-2k', '2k-5k', '5k-15k', '15k-30k', '30k-50k', 'over-50k'
-    ],
-    'style_preferences': [
-        'elegant', 'rustic', 'modern', 'traditional', 'minimalist', 
-        'vintage', 'bohemian', 'industrial', 'wabi-sabi', 'hygge', 
-        'bella-figura', 'savoir-vivre'
-    ],
-    'space_types': [
-        'indoor', 'outdoor', 'ballroom', 'conference-room', 'backyard',
-        'pavilion', 'home-living-room', 'rooftop', 'garden'
-    ],
-    'time_of_day': ['morning', 'afternoon', 'evening', 'all-day']
-}
 
 REQUIRED_PARAMS = ['event_type', 'guest_count', 'budget_range']
 
-@router.post("/extract-parameters", response_model=ParameterExtractionResponse, response_model_by_alias=False)
+@router.post("/extract-parameters", response_model=ParameterExtractionResponse)
 async def extract_parameters_from_chat(
     request: ParameterExtractionRequest,
     current_user: OptionalType[User] = Depends(get_current_user_optional)
@@ -662,7 +663,6 @@ async def extract_parameters_from_chat(
         
         # Also use enhanced prompt system for cultural context if available
         try:
-            from app.services.enhanced_ai_prompt_system import EnhancedAIPromptSystemWithMongoDB
             enhanced_ai = EnhancedAIPromptSystemWithMongoDB()
             
             # Get culturally-aware response if culture is specified
