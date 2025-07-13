@@ -611,17 +611,34 @@ async def extract_parameters_from_chat(
         Existing parameters: {json.dumps(request.existing_params)}
         
         EXTRACTION RULES:
-        1. "birthday party", "bday", "birthday celebration" -> event_type: "birthday-child" or "birthday-adult" based on context
-        2. If age is mentioned (e.g., "3 year old", "3rd birthday") -> event_type: "birthday-child"
-        3. Extract numbers as guest_count if reasonable (1-1000)
-        4. If no culture mentioned, leave culture as null (don't assume)
-        5. Map budget mentions to closest range (e.g., "$3000" -> "2k-5k")
+        1. Map user inputs to system event types:
+           - "birthday party", "bday", "birthday celebration", "Birthday Party" -> event_type: "birthday-adult" (default)
+           - "Birthday (Adult)" -> event_type: "birthday-adult"
+           - "Birthday (Child)" -> event_type: "birthday-child"
+           - If age <13 mentioned (e.g., "3 year old", "10th birthday") -> event_type: "birthday-child"
+           - If teen/adult context clear -> event_type: "birthday-adult"
+        2. Extract numbers as guest_count if reasonable (1-1000)
+        3. Map budget options to system ranges:
+           - "Under $2,000" -> "under-2k"
+           - "$2,000-$5,000" -> "2k-5k"
+           - "$5,000-$15,000" -> "5k-15k"
+           - "$15,000-$30,000" -> "15k-30k"
+           - "$30,000-$50,000" -> "30k-50k"
+           - "$50,000+" -> "over-50k"
+        4. Map guest count options:
+           - "10-25 people" -> guest_count: 20
+           - "25-50 people" -> guest_count: 35
+           - "50-100 people" -> guest_count: 75
+           - "100-200 people" -> guest_count: 150
+           - "200+ people" -> guest_count: 250
+        5. If no culture mentioned, leave culture as null (don't assume)
         6. Default space_type to "indoor" if not mentioned
         
         Examples:
-        - "planning a birthday party for my 3 year old" -> event_type: "birthday-child", guest_count: null
-        - "3rd birthday party" -> event_type: "birthday-child"
-        - "birthday celebration for 20 people" -> event_type: "birthday-adult", guest_count: 20
+        - "Birthday Party" -> event_type: "birthday-adult"
+        - "Birthday (Child)" -> event_type: "birthday-child"
+        - "planning a birthday party for my 3 year old" -> event_type: "birthday-child"
+        - "30th birthday party" -> event_type: "birthday-adult"
         
         Return JSON with:
         {{
@@ -785,7 +802,7 @@ def generate_clarification_question(missing_param: str, existing_params: Dict) -
         'event_type': {
             'id': 'event_type',
             'question': 'What type of event are you planning?',
-            'options': ['Wedding', 'Birthday Party', 'Corporate Event', 'Cultural Celebration', 'Baby Shower', 'Graduation', 'Anniversary'],
+            'options': ['Wedding', 'Birthday (Adult)', 'Birthday (Child)', 'Corporate Event', 'Baby Shower', 'Graduation', 'Anniversary', 'Cultural Celebration'],
             'required': True
         },
         'guest_count': {
