@@ -544,11 +544,11 @@ class ClarificationOption(BaseModel):
     required: bool = Field(..., description="Whether this clarification is required")
 
 class ParameterExtractionResponse(BaseModel):
-    extracted_params: Dict[str, Any] = Field(..., description="All extracted parameters")
-    needs_clarification: bool = Field(False, description="Whether clarification is needed")
-    clarification_question: Optional[str] = Field(None, description="Question to ask for clarification")
-    clarification_options: Optional[ClarificationOption] = Field(None, description="Options for clarification")
-    ready_to_generate: bool = Field(False, description="Whether all required params are collected")
+    extractedParams: Dict[str, Any] = Field(..., description="All extracted parameters", alias="extracted_params")
+    needsClarification: bool = Field(False, description="Whether clarification is needed", alias="needs_clarification")
+    clarificationQuestion: Optional[str] = Field(None, description="Question to ask for clarification", alias="clarification_question")
+    clarificationOptions: Optional[ClarificationOption] = Field(None, description="Options for clarification", alias="clarification_options")
+    readyToGenerate: bool = Field(False, description="Whether all required params are collected", alias="ready_to_generate")
     response: str = Field(..., description="Natural language response to user")
 
 # System capabilities boundary
@@ -579,7 +579,7 @@ SYSTEM_CAPABILITIES = {
 
 REQUIRED_PARAMS = ['event_type', 'guest_count', 'budget_range']
 
-@router.post("/extract-parameters", response_model=ParameterExtractionResponse)
+@router.post("/extract-parameters", response_model=ParameterExtractionResponse, response_model_by_alias=False)
 async def extract_parameters_from_chat(
     request: ParameterExtractionRequest,
     current_user: OptionalType[User] = Depends(get_current_user_optional)
@@ -649,7 +649,9 @@ async def extract_parameters_from_chat(
         # Parse AI response
         try:
             result = json.loads(extraction_result)
+            logger.info(f"AI extraction result: {json.dumps(result, indent=2)}")
         except json.JSONDecodeError:
+            logger.error(f"Failed to parse AI response: {extraction_result}")
             # Fallback parsing
             result = {
                 "extracted": {},
@@ -675,31 +677,72 @@ async def extract_parameters_from_chat(
         except Exception as e:
             logger.debug(f"Enhanced cultural response not available: {e}")
         
+        # Convert camelCase parameters from frontend to snake_case
+        converted_existing_params = {}
+        for key, value in request.existing_params.items():
+            # Convert camelCase to snake_case
+            snake_key = key
+            if key == 'eventType':
+                snake_key = 'event_type'
+            elif key == 'guestCount':
+                snake_key = 'guest_count'
+            elif key == 'budgetRange' or key == 'budget':
+                snake_key = 'budget_range'
+            elif key == 'spaceType':
+                snake_key = 'space_type'
+            elif key == 'timeOfDay':
+                snake_key = 'time_of_day'
+            converted_existing_params[snake_key] = value
+        
         # Merge with existing parameters
-        updated_params = {**request.existing_params}
+        updated_params = {**converted_existing_params}
         for key, value in result['extracted'].items():
-            if value and validate_parameter(key, value):
-                updated_params[key] = value
+            if value:
+                is_valid = validate_parameter(key, value)
+                logger.info(f"Validating {key}={value}: {is_valid}")
+                if is_valid:
+                    updated_params[key] = value
+                else:
+                    logger.warning(f"Parameter {key}={value} failed validation")
         
         # Check what's missing from required parameters
+        logger.info(f"Updated params after extraction: {updated_params}")
+        logger.info(f"Required params: {REQUIRED_PARAMS}")
         missing_required = [param for param in REQUIRED_PARAMS if param not in updated_params or not updated_params[param]]
+        logger.info(f"Missing required params: {missing_required}")
+        
+        # Convert snake_case back to camelCase for frontend
+        frontend_params = {}
+        for key, value in updated_params.items():
+            camel_key = key
+            if key == 'event_type':
+                camel_key = 'eventType'
+            elif key == 'guest_count':
+                camel_key = 'guestCount'
+            elif key == 'budget_range':
+                camel_key = 'budget'
+            elif key == 'space_type':
+                camel_key = 'spaceType'
+            elif key == 'time_of_day':
+                camel_key = 'timeOfDay'
+            frontend_params[camel_key] = value
         
         if missing_required:
             # Generate clarification question for next missing parameter
             clarification = generate_clarification_question(missing_required[0], updated_params)
             
             return ParameterExtractionResponse(
-                extracted_params=updated_params,
-                needs_clarification=True,
-                clarification_question=clarification['question'],
-                clarification_options=ClarificationOption(**clarification),
+                extractedParams=frontend_params,
+                needsClarification=True,
+                clarificationQuestion=clarification['question'],
+                clarificationOptions=ClarificationOption(**clarification),
                 response=result.get('response_tone', 'Got it! Let me ask you one more thing...')
             )
         else:
             # All required parameters collected
             return ParameterExtractionResponse(
-                extracted_params=updated_params,
-                ready_to_generate=True,
+                extractedParams=frontend_params,
+                readyToGenerate=True,
                 response=f"Perfect! I have everything needed to design your {updated_params.get('event_type', 'event')}."
             )
             
@@ -728,9 +771,12 @@ def validate_parameter(key: str, value: str) -> bool:
         capability_key = 'style_preferences'
     
     # Convert value to string to handle any type issues
-    value_str = str(value)
+    value_str = str(value).lower()
     
-    return value_str in SYSTEM_CAPABILITIES.get(capability_key, [])
+    # Get the list of valid options and convert to lowercase for comparison
+    valid_options = [opt.lower() for opt in SYSTEM_CAPABILITIES.get(capability_key, [])]
+    
+    return value_str in valid_options
 
 def generate_clarification_question(missing_param: str, existing_params: Dict) -> Dict:
     """Generate bounded clarification questions"""
