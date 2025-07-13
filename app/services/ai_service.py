@@ -331,7 +331,17 @@ class AIDesignService:
                 messages=[
                     {
                         "role": "system", 
-                        "content": "You are a parameter extraction assistant for an event design system. Extract only supported parameters and be helpful about missing information."
+                        "content": """You are a friendly and helpful parameter extraction assistant for an event design system. 
+                        Your goal is to understand what the user wants to plan and extract relevant parameters.
+                        
+                        Be conversational and positive in your responses. Always acknowledge what you understood from their message.
+                        
+                        Important: Extract parameters even from casual mentions:
+                        - "birthday party", "bday" -> event_type
+                        - Numbers like "3 year old", "20 people" -> extract appropriately
+                        - Be flexible with matching - find the closest supported option
+                        
+                        Always provide a warm, encouraging response_tone that shows you understood their request."""
                     },
                     {"role": "user", "content": extraction_prompt}
                 ],
@@ -343,9 +353,10 @@ class AIDesignService:
             
         except Exception as e:
             logger.error(f"Error extracting parameters: {e}")
+            # More helpful fallback response
             return json.dumps({
                 "extracted": {},
                 "missing_critical": ["event_type", "guest_count", "budget_range"],
                 "confidence": "low",
-                "response_tone": "I'm having trouble understanding. Could you please tell me more about your event?"
+                "response_tone": "I'd love to help you plan your event! Could you tell me what type of celebration you're planning? For example, is it a birthday party, wedding, or another special occasion?"
             })

@@ -597,7 +597,7 @@ async def extract_parameters_from_chat(
         extraction_prompt = f"""
         Extract event requirements from: "{request.message}"
         
-        CRITICAL: Only extract parameters we can actually support.
+        CRITICAL: Only extract parameters we can actually support. Be flexible with understanding common requests.
         
         Available options:
         - event_type: {SYSTEM_CAPABILITIES['event_types']}
@@ -608,6 +608,19 @@ async def extract_parameters_from_chat(
         - time_of_day: {SYSTEM_CAPABILITIES['time_of_day']}
         
         Existing parameters: {json.dumps(request.existing_params)}
+        
+        EXTRACTION RULES:
+        1. "birthday party", "bday", "birthday celebration" -> event_type: "birthday-child" or "birthday-adult" based on context
+        2. If age is mentioned (e.g., "3 year old", "3rd birthday") -> event_type: "birthday-child"
+        3. Extract numbers as guest_count if reasonable (1-1000)
+        4. If no culture mentioned, leave culture as null (don't assume)
+        5. Map budget mentions to closest range (e.g., "$3000" -> "2k-5k")
+        6. Default space_type to "indoor" if not mentioned
+        
+        Examples:
+        - "planning a birthday party for my 3 year old" -> event_type: "birthday-child", guest_count: null
+        - "3rd birthday party" -> event_type: "birthday-child"
+        - "birthday celebration for 20 people" -> event_type: "birthday-adult", guest_count: 20
         
         Return JSON with:
         {{
@@ -625,12 +638,25 @@ async def extract_parameters_from_chat(
           "response_tone": "friendly_acknowledgment_of_what_was_understood"
         }}
         
-        If user mentions something outside our capabilities, ignore it and focus on what we can support.
+        IMPORTANT: For response_tone, acknowledge what you understood from their message. 
+        Example: "I'd love to help you plan a birthday party for your 3-year-old! Let me gather a few more details."
         """
         
         # Use AI service for extraction
         ai_service = AIDesignService()
         extraction_result = await ai_service.extract_parameters_from_text(extraction_prompt)
+        
+        # Parse AI response
+        try:
+            result = json.loads(extraction_result)
+        except json.JSONDecodeError:
+            # Fallback parsing
+            result = {
+                "extracted": {},
+                "missing_critical": REQUIRED_PARAMS,
+                "confidence": "low",
+                "response_tone": "I'm having trouble understanding your requirements. Could you tell me more?"
+            }
         
         # Also use enhanced prompt system for cultural context if available
         try:
@@ -648,18 +674,6 @@ async def extract_parameters_from_chat(
                     result['response_tone'] = cultural_response['response']
         except Exception as e:
             logger.debug(f"Enhanced cultural response not available: {e}")
-        
-        # Parse AI response
-        try:
-            result = json.loads(extraction_result)
-        except json.JSONDecodeError:
-            # Fallback parsing
-            result = {
-                "extracted": {},
-                "missing_critical": REQUIRED_PARAMS,
-                "confidence": "low",
-                "response_tone": "I'm having trouble understanding your requirements. Could you tell me more?"
-            }
         
         # Merge with existing parameters
         updated_params = {**request.existing_params}
@@ -705,11 +719,18 @@ def validate_parameter(key: str, value: str) -> bool:
         except:
             return False
     
+    # Special handling for null values
+    if value is None or value == "null":
+        return False
+    
     capability_key = f"{key}s" if key in ['event_type', 'culture', 'space_type'] else key
     if capability_key == 'styles':
         capability_key = 'style_preferences'
     
-    return value in SYSTEM_CAPABILITIES.get(capability_key, [])
+    # Convert value to string to handle any type issues
+    value_str = str(value)
+    
+    return value_str in SYSTEM_CAPABILITIES.get(capability_key, [])
 
 def generate_clarification_question(missing_param: str, existing_params: Dict) -> Dict:
     """Generate bounded clarification questions"""
