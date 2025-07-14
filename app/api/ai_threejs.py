@@ -582,6 +582,32 @@ class ParameterExtractionResponse(BaseModel):
 
 REQUIRED_PARAMS = ['event_type', 'guest_count', 'budget_range']
 
+def map_clarification_response(message: str, clarification_options: Dict) -> str:
+    """Map user's clarification response to system value"""
+    # Get value map from clarification options
+    value_map = clarification_options.get('value_map', {})
+    
+    # First try exact match
+    if message in value_map:
+        return value_map[message]
+    
+    # Try case-insensitive match
+    message_lower = message.lower()
+    for display_value, system_value in value_map.items():
+        if display_value.lower() == message_lower:
+            return system_value
+    
+    # For guest count, also try to extract numbers from natural language
+    if clarification_options.get('id') == 'guest_count':
+        # Extract numbers from strings like "25 people", "about 30", etc.
+        import re
+        numbers = re.findall(r'\d+', message)
+        if numbers:
+            return numbers[0]  # Return first number found
+    
+    # Return original message if no mapping found
+    return message
+
 @router.post("/extract-parameters", response_model=ParameterExtractionResponse)
 async def extract_parameters_from_chat(
     request: ParameterExtractionRequest,
@@ -603,9 +629,31 @@ async def extract_parameters_from_chat(
             normalized_existing[snake_key] = value
         logger.info(f"Normalized existing params for prompt: {normalized_existing}")
 
+        # Check if this message is a response to a clarification question
+        # by checking if it matches any clarification options
+        mapped_message = request.message
+        last_clarification = None
+        
+        # Check conversation history for recent clarification questions
+        if request.conversation_history:
+            for msg in reversed(request.conversation_history):
+                if msg.type == 'assistant' and hasattr(msg, 'clarificationOptions') and msg.clarificationOptions:
+                    last_clarification = msg.clarificationOptions[0] if isinstance(msg.clarificationOptions, list) else msg.clarificationOptions
+                    break
+        
+        # If we found a recent clarification, try to map the response
+        if last_clarification:
+            # Generate the clarification question structure to get value mapping
+            clarification_data = generate_clarification_question(
+                last_clarification.get('id', ''), 
+                request.existing_params
+            )
+            mapped_message = map_clarification_response(request.message, clarification_data)
+            logger.info(f"Mapped clarification response '{request.message}' to '{mapped_message}'")
+        
         # Build extraction prompt
         extraction_prompt = f"""
-        Extract event requirements from: "{request.message}"
+        Extract event requirements from: "{mapped_message}"
         
         CRITICAL: Only extract parameters we can actually support. Be flexible with understanding common requests.
         
@@ -846,12 +894,17 @@ def validate_parameter(key: str, value: str) -> bool:
     if key == 'guest_count':
         try:
             count = int(value)
-            return 1 <= count <= 1000
-        except:
+            is_valid = 1 <= count <= 1000
+            if not is_valid:
+                logger.warning(f"Guest count {count} out of valid range (1-1000)")
+            return is_valid
+        except Exception as e:
+            logger.warning(f"Failed to convert guest_count '{value}' to int: {e}")
             return False
     
     # Special handling for null values
     if value is None or value == "null":
+        logger.warning(f"Parameter {key} has null value")
         return False
     
     capability_key = f"{key}s" if key in ['event_type', 'culture', 'space_type'] else key
@@ -864,29 +917,61 @@ def validate_parameter(key: str, value: str) -> bool:
     # Get the list of valid options and convert to lowercase for comparison
     valid_options = [opt.lower() for opt in SYSTEM_CAPABILITIES.get(capability_key, [])]
     
-    return value_str in valid_options
+    is_valid = value_str in valid_options
+    if not is_valid:
+        logger.warning(f"Parameter {key}='{value}' (lowercased: '{value_str}') not in valid options: {valid_options}")
+    
+    return is_valid
 
 def generate_clarification_question(missing_param: str, existing_params: Dict) -> Dict:
-    """Generate bounded clarification questions"""
+    """Generate bounded clarification questions with proper value mapping"""
     
     questions = {
         'event_type': {
             'id': 'event_type',
             'question': 'What type of event are you planning?',
             'options': ['Wedding', 'Birthday (Adult)', 'Birthday (Child)', 'Corporate Event', 'Baby Shower', 'Graduation', 'Anniversary', 'Cultural Celebration'],
-            'required': True
+            'required': True,
+            # Map display values to system values
+            'value_map': {
+                'Wedding': 'wedding',
+                'Birthday (Adult)': 'birthday-adult', 
+                'Birthday (Child)': 'birthday-child',
+                'Corporate Event': 'corporate',
+                'Baby Shower': 'baby-shower',
+                'Graduation': 'graduation',
+                'Anniversary': 'anniversary',
+                'Cultural Celebration': 'cultural-celebration'
+            }
         },
         'guest_count': {
             'id': 'guest_count',
             'question': 'About how many people will attend?',
             'options': ['10-25 people', '25-50 people', '50-100 people', '100-200 people', '200+ people'],
-            'required': True
+            'required': True,
+            # Map display values to numeric values (using max of range)
+            'value_map': {
+                '10-25 people': '25',
+                '25-50 people': '50',
+                '50-100 people': '100',
+                '100-200 people': '200',
+                '200+ people': '250'
+            }
         },
         'budget_range': {
             'id': 'budget_range',
             'question': "What's your approximate budget range?",
             'options': ['Under $2,000', '$2,000-$5,000', '$5,000-$15,000', '$15,000-$30,000', '$30,000-$50,000', '$50,000+'],
-            'required': True
+            'required': True,
+            # Map display values to system values
+            'value_map': {
+                'Under $2,000': 'under-2k',
+                '$2,000-$5,000': '2k-5k',
+                '$5,000-$15,000': '5k-15k',
+                '$15,000-$30,000': '15k-30k',
+                '$30,000-$50,000': '30k-50k',
+                '$50,000+': 'over-50k'
+            }
         }
     }
     
