@@ -595,6 +595,13 @@ async def extract_parameters_from_chat(
     try:
         logger.info(f"Extracting parameters from message: {request.message[:100]}...")
         
+        # Normalize existing parameters to snake_case for prompt consistency
+        normalized_existing = {}
+        for key, value in request.existing_params.items():
+            snake_key = ''.join(['_' + c.lower() if c.isupper() else c for c in key]).lstrip('_')
+            normalized_existing[snake_key] = value
+        logger.info(f"Normalized existing params for prompt: {normalized_existing}")
+
         # Build extraction prompt
         extraction_prompt = f"""
         Extract event requirements from: "{request.message}"
@@ -609,7 +616,7 @@ async def extract_parameters_from_chat(
         - space_type: {SYSTEM_CAPABILITIES['space_types']}
         - time_of_day: {SYSTEM_CAPABILITIES['time_of_day']}
         
-        Existing parameters: {json.dumps(request.existing_params)}
+        Existing parameters: {json.dumps(normalized_existing)}
         
         EXTRACTION RULES:
         1. Map user inputs to system event types:
