@@ -654,44 +654,44 @@ async def extract_parameters_from_chat(
         CRITICAL EXAMPLES - ALWAYS PRESERVE EXISTING PARAMETERS:
         
         Example 1 - Adding guest count:
-        Existing: {"event_type": "birthday-child"}
+        Existing: {{"event_type": "birthday-child"}}
         User says: "25-50 people"
-        Extracted: {"event_type": "birthday-child", "guest_count": 35}
+        Extracted: {{"event_type": "birthday-child", "guest_count": 35}}
         
         Example 2 - Adding space type:
-        Existing: {"event_type": "birthday-child", "budget_range": "2k-5k"}
+        Existing: {{"event_type": "birthday-child", "budget_range": "2k-5k"}}
         User says: "indoor"
-        Extracted: {"event_type": "birthday-child", "budget_range": "2k-5k", "space_type": "indoor"}
+        Extracted: {{"event_type": "birthday-child", "budget_range": "2k-5k", "space_type": "indoor"}}
         
         Example 3 - Multiple existing params:
-        Existing: {"event_type": "wedding", "guest_count": 150, "budget_range": "15k-30k"}
+        Existing: {{"event_type": "wedding", "guest_count": 150, "budget_range": "15k-30k"}}
         User says: "I want it in the evening"
-        Extracted: {"event_type": "wedding", "guest_count": 150, "budget_range": "15k-30k", "time_of_day": "evening"}
+        Extracted: {{"event_type": "wedding", "guest_count": 150, "budget_range": "15k-30k", "time_of_day": "evening"}}
         
         Example 4 - Selecting from options:
-        Existing: {"event_type": "corporate", "guest_count": 50}
+        Existing: {{"event_type": "corporate", "guest_count": 50}}
         User says: "$5,000-$15,000"
-        Extracted: {"event_type": "corporate", "guest_count": 50, "budget_range": "5k-15k"}
+        Extracted: {{"event_type": "corporate", "guest_count": 50, "budget_range": "5k-15k"}}
         
         Example 5 - Natural language with existing params:
-        Existing: {"event_type": "birthday-child", "guest_count": 20, "space_type": "indoor"}
+        Existing: {{"event_type": "birthday-child", "guest_count": 20, "space_type": "indoor"}}
         User says: "my budget is around 3000 dollars"
-        Extracted: {"event_type": "birthday-child", "guest_count": 20, "space_type": "indoor", "budget_range": "2k-5k"}
+        Extracted: {{"event_type": "birthday-child", "guest_count": 20, "space_type": "indoor", "budget_range": "2k-5k"}}
         
         Example 6 - Style preference addition:
-        Existing: {"event_type": "anniversary", "budget_range": "5k-15k", "guest_count": 75}
+        Existing: {{"event_type": "anniversary", "budget_range": "5k-15k", "guest_count": 75}}
         User says: "I want something elegant and traditional"
-        Extracted: {"event_type": "anniversary", "budget_range": "5k-15k", "guest_count": 75, "style": "elegant"}
+        Extracted: {{"event_type": "anniversary", "budget_range": "5k-15k", "guest_count": 75, "style": "elegant"}}
         
         Example 7 - Cultural context:
-        Existing: {"event_type": "wedding", "guest_count": 200}
+        Existing: {{"event_type": "wedding", "guest_count": 200}}
         User says: "It's a traditional Indian wedding"
-        Extracted: {"event_type": "wedding", "guest_count": 200, "culture": "indian"}
+        Extracted: {{"event_type": "wedding", "guest_count": 200, "culture": "indian"}}
         
         Example 8 - Modifying existing parameter:
-        Existing: {"event_type": "birthday-adult", "guest_count": 50}
+        Existing: {{"event_type": "birthday-adult", "guest_count": 50}}
         User says: "Actually, let's make it 100 people"
-        Extracted: {"event_type": "birthday-adult", "guest_count": 100}  <- Update only what changed
+        Extracted: {{"event_type": "birthday-adult", "guest_count": 100}}  <- Update only what changed
         
         REMEMBER: NEVER drop parameters that aren't mentioned in the current message!
         
