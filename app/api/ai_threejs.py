@@ -621,6 +621,13 @@ async def extract_parameters_from_chat(
     and extract structured parameters needed for 3D scene generation.
     """
     try:
+        logger.info("="*80)
+        logger.info("INCOMING /extract-parameters REQUEST:")
+        logger.info(f"MESSAGE: {request.message}")
+        logger.info(f"EXISTING PARAMS: {request.existing_params}")
+        logger.info(f"CONVERSATION HISTORY: {[msg.dict() for msg in request.conversation_history]}")
+        logger.info("="*80)
+
         logger.info(f"Extracting parameters from message: {request.message[:100]}...")
         
         # Normalize existing parameters to snake_case for prompt consistency
