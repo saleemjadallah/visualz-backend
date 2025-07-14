@@ -644,10 +644,24 @@ async def extract_parameters_from_chat(
         
         # Check conversation history for recent clarification questions
         if request.conversation_history:
-            for msg in reversed(request.conversation_history):
-                if msg.type == 'assistant' and hasattr(msg, 'clarificationOptions') and msg.clarificationOptions:
-                    last_clarification = msg.clarificationOptions[0] if isinstance(msg.clarificationOptions, list) else msg.clarificationOptions
-                    break
+            logger.info(f"Checking {len(request.conversation_history)} messages for clarification options")
+            for i, msg in enumerate(reversed(request.conversation_history)):
+                logger.info(f"Message {i}: type={msg.type}, has clarificationOptions={hasattr(msg, 'clarificationOptions') if hasattr(msg, 'clarificationOptions') else 'clarificationOptions' in msg if isinstance(msg, dict) else False}")
+                
+                # Handle both Pydantic model and dict formats
+                if msg.type == 'assistant':
+                    clarification_opts = None
+                    if hasattr(msg, 'clarificationOptions'):
+                        clarification_opts = msg.clarificationOptions
+                        logger.info(f"Found clarificationOptions via hasattr: {clarification_opts}")
+                    elif isinstance(msg, dict) and 'clarificationOptions' in msg:
+                        clarification_opts = msg['clarificationOptions']
+                        logger.info(f"Found clarificationOptions via dict key: {clarification_opts}")
+                    
+                    if clarification_opts:
+                        last_clarification = clarification_opts[0] if isinstance(clarification_opts, list) else clarification_opts
+                        logger.info(f"Extracted last_clarification: {last_clarification}")
+                        break
         
         # If we found a recent clarification, try to map the response
         if last_clarification:
@@ -664,6 +678,10 @@ async def extract_parameters_from_chat(
             
             mapped_message = map_clarification_response(request.message, clarification_data)
             logger.info(f"Mapped clarification response '{request.message}' to '{mapped_message}'")
+            
+            # Ensure the mapped value is used for budget validation
+            if clarification_id == 'budget_range' and mapped_message != request.message:
+                logger.info(f"Budget clarification detected: original='{request.message}' mapped='{mapped_message}'")
         
         # Build extraction prompt
         extraction_prompt = f"""
@@ -796,6 +814,15 @@ async def extract_parameters_from_chat(
         try:
             result = json.loads(extraction_result)
             logger.info(f"AI extraction result: {json.dumps(result, indent=2)}")
+            
+            # Log specifically what was extracted for budget
+            if 'budget_range' in result.get('extracted', {}):
+                logger.info(f"AI extracted budget_range: '{result['extracted']['budget_range']}'")
+            elif 'budget' in result.get('extracted', {}):
+                logger.info(f"AI extracted budget: '{result['extracted']['budget']}'")
+            else:
+                logger.info("AI did not extract any budget information")
+                
         except json.JSONDecodeError:
             logger.error(f"Failed to parse AI response: {extraction_result}")
             # Fallback parsing
