@@ -20,6 +20,7 @@ from app.services.ai_service import AIDesignService
 from app.models.design import AIDesignRequest
 from app.services.enhanced_ai_prompt_system import EnhancedAIPromptSystemWithMongoDB
 from app.services.mongodb_cultural_database import MongoDBCulturalDatabase
+from app.services.event_synonym_mapper import EventSynonymMapper
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -613,10 +614,13 @@ async def extract_parameters_from_chat(
         EXTRACTION RULES:
         1. Map user inputs to system event types:
            - "birthday party", "bday", "birthday celebration", "Birthday Party" -> event_type: "birthday-adult" (default)
-           - "Birthday (Adult)" -> event_type: "birthday-adult"
-           - "Birthday (Child)" -> event_type: "birthday-child"
+           - "Birthday (Adult)", "Adult birthday" -> event_type: "birthday-adult"
+           - "Birthday (Child)", "Child birthday" -> event_type: "birthday-child"
+           - "Yes, for a child" (in context of birthday) -> event_type: "birthday-child"
+           - "No, for an adult" (in context of birthday) -> event_type: "birthday-adult"
            - If age <13 mentioned (e.g., "3 year old", "10th birthday") -> event_type: "birthday-child"
            - If teen/adult context clear -> event_type: "birthday-adult"
+           - "in my house", "at home", "my home" -> space_type: "indoor"
         2. Extract numbers as guest_count if reasonable (1-1000)
         3. Map budget options to system ranges:
            - "Under $2,000" -> "under-2k"
@@ -715,8 +719,18 @@ async def extract_parameters_from_chat(
         updated_params = {**converted_existing_params}
         for key, value in result['extracted'].items():
             if value:
+                # Special handling for guest_count - ensure it's an integer
+                if key == 'guest_count':
+                    try:
+                        # If it's already a number string or int, use it
+                        value = int(value)
+                    except (ValueError, TypeError):
+                        # If conversion fails, log it
+                        logger.warning(f"Could not convert guest_count '{value}' to integer")
+                        continue
+                
                 is_valid = validate_parameter(key, value)
-                logger.info(f"Validating {key}={value}: {is_valid}")
+                logger.info(f"Validating {key}={value} (type: {type(value).__name__}): {is_valid}")
                 if is_valid:
                     updated_params[key] = value
                 else:
