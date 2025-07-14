@@ -12,6 +12,7 @@ import subprocess
 import asyncio
 from datetime import datetime
 from pathlib import Path
+import re
 
 from app.api.auth import get_current_user, get_current_user_optional
 from app.models.user import User
@@ -598,7 +599,7 @@ async def extract_parameters_from_chat(
         # Normalize existing parameters to snake_case for prompt consistency
         normalized_existing = {}
         for key, value in request.existing_params.items():
-            snake_key = ''.join(['_' + c.lower() if c.isupper() else c for c in key]).lstrip('_')
+            snake_key = re.sub(r'(?<!^)(?=[A-Z])', '_', key).lower()
             normalized_existing[snake_key] = value
         logger.info(f"Normalized existing params for prompt: {normalized_existing}")
 
@@ -1190,19 +1191,28 @@ def generate_budget_breakdown(request: EventRequirementsRequest) -> Dict[str, An
         "medium": 2000, 
         "high": 5000,
         "luxury": 12000
-    }.get(request.budget_range, 2000)
-    
-    return {
-        "total": base_budget,
-        "categories": {
-            "celebratory_props": int(base_budget * 0.4),
-            "furniture": int(base_budget * 0.25),
-            "lighting": int(base_budget * 0.15),
-            "decorations": int(base_budget * 0.12),
-            "miscellaneous": int(base_budget * 0.08)
-        },
-        "priorities": ["cultural_authenticity", "accessibility", "safety", "visual_impact"]
     }
+    
+    total_budget = base_budget.get(request.budget_range, 2000)
+    
+    allocation = {
+        "total_budget": total_budget,
+        "furniture": int(total_budget * 0.35),
+        "cultural_elements": int(total_budget * 0.25),
+        "lighting": int(total_budget * 0.15),
+        "decorations": int(total_budget * 0.15),
+        "contingency": int(total_budget * 0.10)
+    }
+    
+    # Adjust for cultural complexity
+    cultural_complexity = len(cultural_elements)
+    if cultural_complexity > 3:
+        # Increase cultural elements budget
+        adjustment = int(total_budget * 0.05)
+        allocation["cultural_elements"] += adjustment
+        allocation["decorations"] -= adjustment
+    
+    return allocation
 
 def generate_accessibility_features(request: EventRequirementsRequest) -> List[Dict[str, Any]]:
     """Generate accessibility features for event"""
