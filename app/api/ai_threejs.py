@@ -644,21 +644,31 @@ async def extract_parameters_from_chat(
         - "planning a birthday party for my 3 year old" -> event_type: "birthday-child"
         - "30th birthday party" -> event_type: "birthday-adult"
         
+        Example with existing parameters:
+        Existing: {"event_type": "birthday-child"}
+        User says: "25-50 people"
+        Extracted: {"event_type": "birthday-child", "guest_count": 35}  <- KEEP existing event_type!
+        
+        CRITICAL: Start with ALL existing parameters and only update what's mentioned in the current message.
+        
         Return JSON with:
         {{
           "extracted": {{
-            "event_type": "closest_match_or_null",
-            "culture": "detected_culture_or_null", 
-            "guest_count": "estimated_number_or_null",
-            "budget_range": "detected_range_or_null",
-            "style": "detected_style_or_null",
-            "space_type": "detected_space_or_null",
-            "time_of_day": "detected_time_or_null"
+            "event_type": "use_existing_or_extract_new",
+            "culture": "use_existing_or_extract_new", 
+            "guest_count": "use_existing_or_extract_new",
+            "budget_range": "use_existing_or_extract_new",
+            "style": "use_existing_or_extract_new",
+            "space_type": "use_existing_or_extract_new",
+            "time_of_day": "use_existing_or_extract_new"
           }},
           "missing_critical": ["list", "of", "missing", "required", "fields"],
           "confidence": "high|medium|low",
           "response_tone": "friendly_acknowledgment_of_what_was_understood"
         }}
+        
+        IMPORTANT: If a parameter exists in "Existing parameters" and is not being changed by the current message, 
+        you MUST include it in "extracted" with its existing value. Never drop existing parameters!
         
         IMPORTANT: For response_tone, acknowledge what you understood from their message. 
         Example: "I'd love to help you plan a birthday party for your 3-year-old! Let me gather a few more details."
