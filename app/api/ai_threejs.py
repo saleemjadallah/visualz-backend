@@ -1341,7 +1341,7 @@ def generate_budget_breakdown(request: EventRequirementsRequest) -> Dict[str, An
     }
     
     # Adjust for cultural complexity
-    cultural_complexity = len(cultural_elements)
+    cultural_complexity = len(request.cultural_background or [])
     if cultural_complexity > 3:
         # Increase cultural elements budget
         adjustment = int(total_budget * 0.05)
