@@ -654,10 +654,14 @@ async def extract_parameters_from_chat(
             # Generate the clarification question structure to get value mapping
             # Handle both dict and object formats
             clarification_id = last_clarification.id if hasattr(last_clarification, 'id') else last_clarification.get('id', '')
+            logger.info(f"Found last clarification with id: {clarification_id}")
+            
             clarification_data = generate_clarification_question(
                 clarification_id, 
                 request.existing_params
             )
+            logger.info(f"Generated clarification data: {clarification_data}")
+            
             mapped_message = map_clarification_response(request.message, clarification_data)
             logger.info(f"Mapped clarification response '{request.message}' to '{mapped_message}'")
         
@@ -837,6 +841,8 @@ async def extract_parameters_from_chat(
         
         # Merge with existing parameters
         updated_params = {**converted_existing_params}
+        logger.info(f"AI extracted parameters: {result.get('extracted', {})}")
+        
         for key, value in result['extracted'].items():
             if value:
                 # Special handling for guest_count - ensure it's an integer
@@ -849,10 +855,13 @@ async def extract_parameters_from_chat(
                         logger.warning(f"Could not convert guest_count '{value}' to integer")
                         continue
                 
+                # Log the validation attempt
+                logger.info(f"Attempting to validate {key}={value}")
                 is_valid = validate_parameter(key, value)
                 logger.info(f"Validating {key}={value} (type: {type(value).__name__}): {is_valid}")
                 if is_valid:
                     updated_params[key] = value
+                    logger.info(f"Successfully added {key}={value} to updated_params")
                 else:
                     logger.warning(f"Parameter {key}={value} failed validation")
         
