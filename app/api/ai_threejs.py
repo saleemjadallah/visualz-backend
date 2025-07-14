@@ -688,14 +688,16 @@ async def extract_parameters_from_chat(
            - If teen/adult context clear -> event_type: "birthday-adult"
            - "in my house", "at home", "my home" -> space_type: "indoor"
         2. Extract numbers as guest_count if reasonable (1-1000)
-        3. Map budget options to system ranges:
+        3. IMPORTANT: If the message contains any of our budget_range values directly (like "under-2k", "2k-5k", etc.), 
+           extract it AS-IS to budget_range. These are already mapped values.
+        4. Map budget options to system ranges:
            - "Under $2,000" -> "under-2k"
            - "$2,000-$5,000" -> "2k-5k"
            - "$5,000-$15,000" -> "5k-15k"
            - "$15,000-$30,000" -> "15k-30k"
            - "$30,000-$50,000" -> "30k-50k"
            - "$50,000+" -> "over-50k"
-        4. Map guest count options:
+        5. Map guest count options:
            - "10-25 people" -> guest_count: 20
            - "25-50 people" -> guest_count: 35
            - "50-100 people" -> guest_count: 75
@@ -774,6 +776,9 @@ async def extract_parameters_from_chat(
         
         IMPORTANT: If a parameter exists in "Existing parameters" and is not being changed by the current message, 
         you MUST include it in "extracted" with its existing value. Never drop existing parameters!
+        
+        CRITICAL FOR BUDGET: If the message is "under-2k", "2k-5k", "5k-15k", etc., this is ALREADY a valid budget_range value.
+        Extract it directly as: "budget_range": "under-2k" (or whatever the value is).
         
         IMPORTANT: For response_tone, acknowledge what you understood from their message. 
         Example: "I'd love to help you plan a birthday party for your 3-year-old! Let me gather a few more details."
