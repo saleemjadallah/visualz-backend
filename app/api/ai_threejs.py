@@ -652,8 +652,10 @@ async def extract_parameters_from_chat(
         # If we found a recent clarification, try to map the response
         if last_clarification:
             # Generate the clarification question structure to get value mapping
+            # Handle both dict and object formats
+            clarification_id = last_clarification.id if hasattr(last_clarification, 'id') else last_clarification.get('id', '')
             clarification_data = generate_clarification_question(
-                last_clarification.get('id', ''), 
+                clarification_id, 
                 request.existing_params
             )
             mapped_message = map_clarification_response(request.message, clarification_data)
