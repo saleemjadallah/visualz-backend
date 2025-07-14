@@ -555,21 +555,22 @@ async def call_threejs_integration_service(design_response: AIDesignResponse) ->
         logger.error(f"Three.js integration service failed: {str(e)}")
         raise
 
-class ConversationMessage(BaseModel):
-    type: str = Field(..., description="'user' | 'assistant' | 'system'")
-    content: str = Field(..., description="Message content")
-    timestamp: Optional[datetime] = Field(None, description="Message timestamp")
-
-class ParameterExtractionRequest(BaseModel):
-    message: str = Field(..., description="User's natural language message")
-    existing_params: Dict[str, Any] = Field(default_factory=dict, description="Already extracted parameters")
-    conversation_history: List[ConversationMessage] = Field(default_factory=list, description="Previous conversation messages")
-
 class ClarificationOption(BaseModel):
     id: str = Field(..., description="Unique identifier for the option")
     question: str = Field(..., description="Question to ask the user")
     options: List[str] = Field(..., description="Available options to choose from")
     required: bool = Field(..., description="Whether this clarification is required")
+
+class ConversationMessage(BaseModel):
+    type: str = Field(..., description="'user' | 'assistant' | 'system'")
+    content: str = Field(..., description="Message content")
+    timestamp: Optional[datetime] = Field(None, description="Message timestamp")
+    clarificationOptions: Optional[List[ClarificationOption]] = Field(None, description="Available clarification options")
+
+class ParameterExtractionRequest(BaseModel):
+    message: str = Field(..., description="User's natural language message")
+    existing_params: Dict[str, Any] = Field(default_factory=dict, description="Already extracted parameters")
+    conversation_history: List[ConversationMessage] = Field(default_factory=list, description="Previous conversation messages")
 
 class ParameterExtractionResponse(BaseModel):
     extractedParams: Dict[str, Any] = Field(..., description="All extracted parameters")
